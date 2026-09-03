@@ -1,0 +1,28 @@
+services:
+  arangodb:
+    image: arangodb:3.12
+    container_name: kotva-arangodb
+    environment:
+      ARANGO_ROOT_PASSWORD: ${ARANGO_PASSWORD:-kotva123}
+    ports: ["127.0.0.1:8529:8529"]
+    volumes: ["arango_data:/var/lib/arangodb3"]
+    healthcheck:
+      test: ["CMD-SHELL", "arangosh --server.endpoint tcp://127.0.0.1:8529 --server.username root --server.password \"$$ARANGO_ROOT_PASSWORD\" --javascript.execute-string \"db._version()\" >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  app:
+    build: .
+    container_name: kotva-app
+    environment:
+      PORT: 3000
+      USE_ARANGO: "true"
+      ARANGO_URL: http://arangodb:8529
+      ARANGO_DB: kotva
+      ARANGO_USER: root
+      ARANGO_PASSWORD: ${ARANGO_PASSWORD:-kotva123}
+    ports: ["127.0.0.1:${APP_PORT:-3001}:3000"]
+    depends_on:
+      arangodb: {condition: service_healthy}
+volumes:
+  arango_data:

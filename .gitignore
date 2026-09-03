@@ -1,0 +1,13 @@
+node_modules/
+.env
+.env.*
+!.env.example
+npm-debug.log*
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+pdf-cover-check.png
+DOKUMENTACIJA_KOTVA.html
+build_documentation_pdf.py
