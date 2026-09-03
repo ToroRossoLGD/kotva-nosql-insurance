@@ -24,6 +24,8 @@ that update automatically when new records are added.
 - Model relationships using ArangoDB named graphs and edge collections
 - Validate incoming data through the REST API
 - Persist database data in a Docker volume
+- Sign in securely with role-based permissions for administrators, agents, and analysts
+- Record successful and failed login attempts for administrator review
 
 ## Technology Stack
 
@@ -57,6 +59,8 @@ Document collections:
 - `clients`
 - `policies`
 - `insurers`
+- `users`
+- `login_attempts`
 
 Edge collections:
 
@@ -114,10 +118,17 @@ Open the services in a browser:
 Local demonstration credentials:
 
 ```text
-Username: root
-Password: kotva123
-Database: kotva
+Application administrator: admin / Admin123!
+Insurance agent:          agent / Agent123!
+Read-only analyst:        analyst / Analyst123!
+
+ArangoDB web interface:   root / kotva123
+Database:                 kotva
 ```
+
+Administrators can manage clients and insurance companies and review the login
+audit. Agents can view data and create clients. Analysts have read-only access
+to clients, search, and analytics.
 
 The database, collections, indexes, named graph, analyzer, and demonstration
 records are created automatically during the first startup. Changes are stored
@@ -158,6 +169,8 @@ The application will then be available at http://localhost:3002.
 
 To use a different local database password, copy `.env.example` to `.env` and
 change `ARANGO_PASSWORD`. The `.env` file is intentionally excluded from Git.
+The JWT signing secret and demo account passwords can also be overridden through
+the variables shown in `.env.example`.
 
 The credentials committed to this repository are intended only for a local
 demonstration environment. A production deployment should use securely managed
@@ -168,6 +181,10 @@ secrets and must not expose the database directly.
 | Method | Endpoint | Purpose |
 |---|---|---|
 | GET | `/api/health` | Return the application and database status |
+| POST | `/api/auth/login` | Sign in and create an HttpOnly session cookie |
+| POST | `/api/auth/logout` | Clear the current session |
+| GET | `/api/auth/me` | Return the signed-in user |
+| GET | `/api/auth/login-attempts` | Return the login audit for administrators |
 | GET | `/api/config` | Return the supported insurance types |
 | GET | `/api/clients` | List clients |
 | POST | `/api/clients` | Create a client and synchronize graph data |
