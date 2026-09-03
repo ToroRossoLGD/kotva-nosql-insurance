@@ -6,7 +6,7 @@ const doughnutPercentLabels={id:'doughnutPercentLabels',afterDatasetsDraw(chart)
   const{ctx}=chart;ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#fff';ctx.font='700 11px DM Sans';
   chart.getDatasetMeta(0).data.forEach((arc,index)=>{if(!values[index])return;const point=arc.tooltipPosition();ctx.fillText(`${(values[index]*100/total).toFixed(1)}%`,point.x,point.y)});ctx.restore();
 }};
-async function api(url,options){const r=await fetch(url,options),d=await r.json();if(!r.ok)throw Error(d.message||'Zahtev nije uspeo.');return d}
+async function api(url,options){const r=await fetch(url,options),d=r.status===204?null:await r.json();if(r.status===401)showLogin();if(!r.ok)throw Error(d?.message||'Zahtev nije uspeo.');return d}
 function message(s,text,error=false){const e=$(s);e.textContent=text;e.classList.toggle('error',error);setTimeout(()=>{if(e.textContent===text)e.textContent=''},3500)}
 function stats(d){const a=[['Korisnici',d.totalClients,'Ukupno aktivnih polisa','↗'],['Prosečna starost',d.averageAge,'godina','◎'],['Vodeća kuća',d.topInsurer.name,`${d.topInsurer.count} osiguranika`,'◆'],['Najjači mesec',d.busiestMonth.month,`${d.busiestMonth.count} putnih polisa`,'▦'],['Putno osiguranje',`${d.travelShare}%`,'ukupnog portfolija','✦']];$('#stats-grid').innerHTML=a.map(x=>`<article class="stat"><i>${x[3]}</i><div><span>${x[0]}</span><strong>${x[1]}</strong><small>${x[2]}</small></div></article>`).join('')}
 function make(id,type,data,options,plugins=[]){charts[id]?.destroy();charts[id]=new Chart(document.getElementById(id),{type,data,options:{responsive:true,maintainAspectRatio:false,...options},plugins})}
@@ -30,4 +30,30 @@ $('#client-search').addEventListener('input',event=>{
     catch(error){console.error(error)}
   },250)
 });
-$('#client-form').addEventListener('submit',async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{await api('/api/clients',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(new FormData(e.target)))});e.target.reset();$('#sale-date').valueAsDate=new Date();message('#client-message','Korisnik je uspešno sačuvan.');await refresh()}catch(x){message('#client-message',x.message,true)}finally{b.disabled=false}});$('#insurer-form').addEventListener('submit',async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{await api('/api/insurers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(new FormData(e.target)))});e.target.reset();message('#insurer-message','Kuća je dodata.');await options();await refresh()}catch(x){message('#insurer-message',x.message,true)}finally{b.disabled=false}});document.querySelectorAll('[data-scroll]').forEach(b=>b.onclick=()=>document.getElementById(b.dataset.scroll).scrollIntoView({behavior:'smooth'}));$('#sale-date').valueAsDate=new Date();Promise.all([options(),refresh()]).catch(console.error);
+$('#client-form').addEventListener('submit',async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{await api('/api/clients',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(new FormData(e.target)))});e.target.reset();$('#sale-date').valueAsDate=new Date();message('#client-message','Korisnik je uspešno sačuvan.');await refresh()}catch(x){message('#client-message',x.message,true)}finally{b.disabled=false}});$('#insurer-form').addEventListener('submit',async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{await api('/api/insurers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(new FormData(e.target)))});e.target.reset();message('#insurer-message','Kuća je dodata.');await options();await refresh()}catch(x){message('#insurer-message',x.message,true)}finally{b.disabled=false}});document.querySelectorAll('[data-scroll]').forEach(b=>b.onclick=()=>document.getElementById(b.dataset.scroll).scrollIntoView({behavior:'smooth'}));
+let currentUser=null;
+function showLogin(){currentUser=null;$('#app-shell').hidden=true;$('#login-screen').hidden=false}
+function applyPermissions(user){
+  currentUser=user;const canWrite=['admin','agent'].includes(user.role),isAdmin=user.role==='admin';
+  document.querySelectorAll('[data-write]').forEach(element=>element.hidden=!canWrite);
+  document.querySelectorAll('[data-admin]').forEach(element=>element.hidden=!isAdmin);
+  $('#user-name').textContent=user.displayName;$('#user-role').textContent=user.role;
+  $('#login-screen').hidden=true;$('#app-shell').hidden=false;
+}
+async function loadLoginAttempts(){
+  if(currentUser?.role!=='admin')return;
+  const attempts=await api('/api/auth/login-attempts');
+  $('#login-attempts-body').innerHTML=attempts.map(item=>`<tr><td>${new Date(item.timestamp).toLocaleString('sr-RS')}</td><td>${item.username||'—'}</td><td><span class="${item.successful?'status-success':'status-failed'}">${item.successful?'Uspešno':'Neuspešno'}</span></td><td>${item.ip||'—'}</td></tr>`).join('')||'<tr><td colspan="4">Nema evidentiranih pokušaja.</td></tr>';
+}
+async function enterApplication(user){applyPermissions(user);$('#sale-date').valueAsDate=new Date();await Promise.all([options(),refresh(),loadLoginAttempts()])}
+$('#login-form').addEventListener('submit',async event=>{
+  event.preventDefault();const button=event.submitter;button.disabled=true;$('#login-message').textContent='';
+  try{const result=await api('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(new FormData(event.target)))});event.target.reset();await enterApplication(result.user)}
+  catch(error){$('#login-message').textContent=error.message}
+  finally{button.disabled=false}
+});
+$('#logout-button').addEventListener('click',async()=>{try{await api('/api/auth/logout',{method:'POST'})}finally{showLogin()}});
+async function bootstrap(){
+  try{const response=await fetch('/api/auth/me');if(!response.ok)return showLogin();const result=await response.json();await enterApplication(result.user)}catch(error){showLogin()}
+}
+bootstrap();

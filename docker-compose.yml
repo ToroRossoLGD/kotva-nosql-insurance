@@ -21,6 +21,10 @@ services:
       ARANGO_DB: kotva
       ARANGO_USER: root
       ARANGO_PASSWORD: ${ARANGO_PASSWORD:-kotva123}
+      JWT_SECRET: ${JWT_SECRET:-kotva-local-demo-secret-change-before-production}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin123!}
+      AGENT_PASSWORD: ${AGENT_PASSWORD:-Agent123!}
+      ANALYST_PASSWORD: ${ANALYST_PASSWORD:-Analyst123!}
     ports: ["127.0.0.1:${APP_PORT:-3001}:3000"]
     depends_on:
       arangodb: {condition: service_healthy}
