@@ -6,4 +6,5 @@
 .login-message{min-height:17px;color:#d94841;font-size:12px;font-weight:700}.sidebar-bottom{margin-top:auto;display:grid;gap:10px}.sidebar-bottom .db-card{margin-top:0}
 .user-card{padding:13px;background:#ffffff12;border-radius:13px;display:flex;align-items:center;justify-content:space-between;gap:8px}.user-card strong,.user-card small{display:block}.user-card strong{font-size:11px}.user-card small{font-size:9px;color:#91a8b9;text-transform:uppercase;margin-top:2px}
 .user-card button{border:0;background:transparent;color:#ffb195;font-size:10px;font-weight:700;cursor:pointer}#security{margin-top:54px}.status-success{color:#18825f;font-weight:700}.status-failed{color:#d94841;font-weight:700}
+.forms.single{grid-template-columns:1fr}
 @media(max-width:800px){.sidebar-bottom{margin-left:auto}.sidebar-bottom .db-card{display:none}.user-card{padding:8px 10px}}

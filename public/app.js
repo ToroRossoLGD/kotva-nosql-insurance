@@ -37,7 +37,8 @@ function applyPermissions(user){
   currentUser=user;const canWrite=['admin','agent'].includes(user.role),isAdmin=user.role==='admin';
   document.querySelectorAll('[data-write]').forEach(element=>element.hidden=!canWrite);
   document.querySelectorAll('[data-admin]').forEach(element=>element.hidden=!isAdmin);
-  $('#user-name').textContent=user.displayName;$('#user-role').textContent=user.role;
+  $('.forms').classList.toggle('single',!isAdmin);
+  $('#user-name').textContent=user.displayName;$('#user-role').textContent=`${user.tenantName} · ${user.role}`;
   $('#login-screen').hidden=true;$('#app-shell').hidden=false;
 }
 async function loadLoginAttempts(){

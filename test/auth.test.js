@@ -61,3 +61,32 @@ test('administrator has full access and logout clears the session',async()=>{
   const logout=await request('/api/auth/logout',{method:'POST',headers:{cookie:admin.cookie}});assert.equal(logout.response.status,204);
   assert.match(logout.response.headers.get('set-cookie'),/kotva_session=;/);
 });
+
+test('tenant data and analytics are isolated between companies',async()=>{
+  const kotva=await login('admin','Admin123!');
+  const adria=await login('adria-admin','Adria123!');
+  assert.equal(adria.response.status,200);assert.equal(adria.body.user.tenantName,'Adria Brokers');
+
+  const kotvaClients=await request('/api/clients',{headers:{cookie:kotva.cookie}});
+  const adriaClients=await request('/api/clients',{headers:{cookie:adria.cookie}});
+  assert.ok(kotvaClients.body.length>adriaClients.body.length);
+  assert.ok(kotvaClients.body.every(client=>client.tenantId==='tenant-kotva'));
+  assert.ok(adriaClients.body.every(client=>client.tenantId==='tenant-adria'));
+
+  const kotvaBefore=await request('/api/analytics',{headers:{cookie:kotva.cookie}});
+  const adriaBefore=await request('/api/analytics',{headers:{cookie:adria.cookie}});
+  const newInsurer=await request('/api/insurers',{method:'POST',headers:{cookie:adria.cookie,'content-type':'application/json'},body:JSON.stringify({name:'Adria Exclusive'})});
+  assert.equal(newInsurer.response.status,201);assert.equal(newInsurer.body.tenantId,'tenant-adria');
+  const newClient=await request('/api/clients',{method:'POST',headers:{cookie:adria.cookie,'content-type':'application/json'},body:JSON.stringify({name:'Tenant',surname:'Isolation',age:37,insuranceType:'Auto',insurer:'Adria Exclusive',saleDate:'2026-09-02'})});
+  assert.equal(newClient.response.status,201);assert.equal(newClient.body.tenantId,'tenant-adria');
+
+  const kotvaAfter=await request('/api/analytics',{headers:{cookie:kotva.cookie}});
+  const adriaAfter=await request('/api/analytics',{headers:{cookie:adria.cookie}});
+  assert.equal(kotvaAfter.body.totalClients,kotvaBefore.body.totalClients);
+  assert.equal(adriaAfter.body.totalClients,adriaBefore.body.totalClients+1);
+
+  const kotvaAudit=await request('/api/auth/login-attempts',{headers:{cookie:kotva.cookie}});
+  const adriaAudit=await request('/api/auth/login-attempts',{headers:{cookie:adria.cookie}});
+  assert.ok(kotvaAudit.body.every(item=>item.tenantId==='tenant-kotva'));
+  assert.ok(adriaAudit.body.every(item=>item.tenantId==='tenant-adria'));
+});

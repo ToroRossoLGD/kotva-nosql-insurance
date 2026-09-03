@@ -26,6 +26,7 @@ that update automatically when new records are added.
 - Persist database data in a Docker volume
 - Sign in securely with role-based permissions for administrators, agents, and analysts
 - Record successful and failed login attempts for administrator review
+- Isolate every client, insurer, policy, graph edge, audit record, and analytic by company tenant
 
 ## Technology Stack
 
@@ -61,6 +62,7 @@ Document collections:
 - `insurers`
 - `users`
 - `login_attempts`
+- `tenants`
 
 Edge collections:
 
@@ -121,6 +123,7 @@ Local demonstration credentials:
 Application administrator: admin / Admin123!
 Insurance agent:          agent / Agent123!
 Read-only analyst:        analyst / Analyst123!
+Second-company admin:     adria-admin / Adria123!
 
 ArangoDB web interface:   root / kotva123
 Database:                 kotva
@@ -129,6 +132,11 @@ Database:                 kotva
 Administrators can manage clients and insurance companies and review the login
 audit. Agents can view data and create clients. Analysts have read-only access
 to clients, search, and analytics.
+
+The Kotva accounts belong to the `Kotva Insurance` tenant, while `adria-admin`
+belongs to the independent `Adria Brokers` tenant. The tenant identity comes
+from the signed session token. API clients cannot select or override it through
+request parameters, preventing accidental cross-company access.
 
 The database, collections, indexes, named graph, analyzer, and demonstration
 records are created automatically during the first startup. Changes are stored
@@ -196,6 +204,7 @@ secrets and must not expose the database directly.
 ## NoSQL Concepts Demonstrated
 
 - Flexible JSON document model
+- Shared-database multi-tenancy with tenant-scoped queries and compound indexes
 - Denormalization
 - Persistent and inverted indexes
 - Text normalization with an ArangoDB analyzer

@@ -25,6 +25,7 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin123!}
       AGENT_PASSWORD: ${AGENT_PASSWORD:-Agent123!}
       ANALYST_PASSWORD: ${ANALYST_PASSWORD:-Analyst123!}
+      ADRIA_ADMIN_PASSWORD: ${ADRIA_ADMIN_PASSWORD:-Adria123!}
     ports: ["127.0.0.1:${APP_PORT:-3001}:3000"]
     depends_on:
       arangodb: {condition: service_healthy}
