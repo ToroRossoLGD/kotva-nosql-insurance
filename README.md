@@ -15,6 +15,8 @@ that update automatically when new records are added.
 - Add new insurance companies dynamically
 - Store policy sale dates and insurance categories
 - Require JMBG, passport number, and destination for every new travel-insurance client
+- Capture vehicle make, engine capacity, vehicle category, and passenger-car body type for auto insurance
+- Track extensible broker approval metadata for vehicle insurance
 - Display recently added clients in a responsive table
 - Search names regardless of letter case and diacritics
 - Automatically update statistics and charts after data entry
@@ -197,6 +199,7 @@ secrets and must not expose the database directly.
 | GET | `/api/config` | Return the supported insurance types |
 | GET | `/api/clients` | List clients |
 | POST | `/api/clients` | Create a client and synchronize graph data |
+| POST | `/api/clients/:id/broker-approval` | Confirm auto-insurance vehicle details as an agent or administrator |
 | GET | `/api/insurers` | List insurance companies |
 | POST | `/api/insurers` | Create an insurance company |
 | GET | `/api/search?q=query` | Search clients by name |
@@ -207,6 +210,7 @@ secrets and must not expose the database directly.
 - Flexible JSON document model
 - Shared-database multi-tenancy with tenant-scoped queries and compound indexes
 - Conditional data validation and a tenant-scoped unique JMBG index
+- Role-protected broker approval workflow with status, timestamp, and approving-user metadata
 - Denormalization
 - Persistent and inverted indexes
 - Text normalization with an ArangoDB analyzer

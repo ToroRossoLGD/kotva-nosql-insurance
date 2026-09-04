@@ -48,7 +48,7 @@ test('analyst has read-only access',async()=>{
 
 test('agent can create clients but cannot create insurers',async()=>{
   const agent=await login('agent','Agent123!');assert.equal(agent.response.status,200);
-  const client=await request('/api/clients',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify({name:'Test',surname:'Agent',age:30,insuranceType:'Auto',insurer:'Uniqa',saleDate:'2026-09-01'})});
+  const client=await request('/api/clients',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify({name:'Test',surname:'Agent',age:30,insuranceType:'Auto',insurer:'Uniqa',saleDate:'2026-09-01',vehicleMake:'Toyota',engineCapacity:1598,vehicleType:'Putničko',bodyType:'SUV'})});
   assert.equal(client.response.status,201);
   const insurer=await request('/api/insurers',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify({name:'Agent Test Insurer'})});
   assert.equal(insurer.response.status,403);
@@ -79,6 +79,28 @@ test('travel insurance requires and stores JMBG, passport, and destination',asyn
   assert.equal(duplicate.response.status,409);
 });
 
+test('auto insurance requires vehicle details and supports broker approval',async()=>{
+  const agent=await login('agent','Agent123!');
+  const base={name:'Auto',surname:'Customer',age:39,insuranceType:'Auto',insurer:'Generali',saleDate:'2026-09-04'};
+  const missing=await request('/api/clients',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify(base)});
+  assert.equal(missing.response.status,400);assert.match(missing.body.message,/Marka vozila/);
+  const noBodyType=await request('/api/clients',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify({...base,vehicleMake:'Škoda',engineCapacity:1968,vehicleType:'Putničko'})});
+  assert.equal(noBodyType.response.status,400);assert.match(noBodyType.body.message,/limuzinu, SUV ili karavan/);
+
+  const created=await request('/api/clients',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify({...base,vehicleMake:'Škoda',engineCapacity:1968,vehicleType:'Putničko',bodyType:'Karavan'})});
+  assert.equal(created.response.status,201);assert.equal(created.body.brokerApproval.status,'pending');assert.equal(created.body.bodyType,'Karavan');
+
+  const analyst=await login('analyst','Analyst123!');
+  const denied=await request(`/api/clients/${created.body.id}/broker-approval`,{method:'POST',headers:{cookie:analyst.cookie}});
+  assert.equal(denied.response.status,403);
+  const approved=await request(`/api/clients/${created.body.id}/broker-approval`,{method:'POST',headers:{cookie:agent.cookie}});
+  assert.equal(approved.response.status,200);assert.equal(approved.body.brokerApproval.status,'confirmed');assert.equal(approved.body.brokerApproval.confirmedBy.username,'agent');
+
+  const adria=await login('adria-admin','Adria123!');
+  const crossTenant=await request(`/api/clients/${created.body.id}/broker-approval`,{method:'POST',headers:{cookie:adria.cookie}});
+  assert.equal(crossTenant.response.status,404);
+});
+
 test('tenant data and analytics are isolated between companies',async()=>{
   const kotva=await login('admin','Admin123!');
   const adria=await login('adria-admin','Adria123!');
@@ -94,7 +116,7 @@ test('tenant data and analytics are isolated between companies',async()=>{
   const adriaBefore=await request('/api/analytics',{headers:{cookie:adria.cookie}});
   const newInsurer=await request('/api/insurers',{method:'POST',headers:{cookie:adria.cookie,'content-type':'application/json'},body:JSON.stringify({name:'Adria Exclusive'})});
   assert.equal(newInsurer.response.status,201);assert.equal(newInsurer.body.tenantId,'tenant-adria');
-  const newClient=await request('/api/clients',{method:'POST',headers:{cookie:adria.cookie,'content-type':'application/json'},body:JSON.stringify({name:'Tenant',surname:'Isolation',age:37,insuranceType:'Auto',insurer:'Adria Exclusive',saleDate:'2026-09-02'})});
+  const newClient=await request('/api/clients',{method:'POST',headers:{cookie:adria.cookie,'content-type':'application/json'},body:JSON.stringify({name:'Tenant',surname:'Isolation',age:37,insuranceType:'Auto',insurer:'Adria Exclusive',saleDate:'2026-09-02',vehicleMake:'MAN',engineCapacity:6871,vehicleType:'Teretno'})});
   assert.equal(newClient.response.status,201);assert.equal(newClient.body.tenantId,'tenant-adria');
 
   const kotvaAfter=await request('/api/analytics',{headers:{cookie:kotva.cookie}});

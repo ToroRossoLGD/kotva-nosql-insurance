@@ -8,4 +8,5 @@
 .user-card button{border:0;background:transparent;color:#ffb195;font-size:10px;font-weight:700;cursor:pointer}#security{margin-top:54px}.status-success{color:#18825f;font-weight:700}.status-failed{color:#d94841;font-weight:700}
 .forms.single{grid-template-columns:1fr}
 .travel-meta{display:block;margin-top:3px;color:var(--muted);font-size:9px;white-space:nowrap}
+.broker-button{border:0;border-radius:7px;padding:7px 9px;background:#fff0ea;color:#c94b1d;font-size:10px;font-weight:800;cursor:pointer;white-space:nowrap}.broker-button:disabled{opacity:.55}.broker-confirmed{color:var(--green);font-size:11px;font-weight:800}.broker-pending{color:#a16c00;font-size:11px;font-weight:700}
 @media(max-width:800px){.sidebar-bottom{margin-left:auto}.sidebar-bottom .db-card{display:none}.user-card{padding:8px 10px}}
