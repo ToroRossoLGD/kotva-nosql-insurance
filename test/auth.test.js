@@ -1,5 +1,6 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
+const ExcelJS=require('exceljs');
 
 process.env.USE_ARANGO='false';
 process.env.JWT_SECRET='test-secret-that-is-not-used-in-production';
@@ -99,6 +100,21 @@ test('auto insurance requires vehicle details and supports broker approval',asyn
   const adria=await login('adria-admin','Adria123!');
   const crossTenant=await request(`/api/clients/${created.body.id}/broker-approval`,{method:'POST',headers:{cookie:adria.cookie}});
   assert.equal(crossTenant.response.status,404);
+});
+
+test('Excel export contains tenant market-share percentages and DZO',async()=>{
+  const agent=await login('agent','Agent123!');
+  const dzo=await request('/api/clients',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify({name:'DZO',surname:'Customer',age:34,insuranceType:'DZO',insurer:'Uniqa',saleDate:'2026-09-04'})});
+  assert.equal(dzo.response.status,201);
+  const response=await fetch(`${baseUrl}/api/exports/insurance-market-share.xlsx`,{headers:{cookie:agent.cookie}});
+  assert.equal(response.status,200);assert.match(response.headers.get('content-type'),/spreadsheetml/);assert.match(response.headers.get('content-disposition'),/\.xlsx/);
+  const workbook=new ExcelJS.Workbook();await workbook.xlsx.load(await response.arrayBuffer());
+  const report=workbook.getWorksheet('Market Share'),source=workbook.getWorksheet('Source Counts');
+  assert.ok(report);assert.ok(source);assert.equal(report.getCell('A1').value,'INSURANCE MARKET SHARE');
+  assert.deepEqual(report.getRow(5).values.slice(1,6),['Insurance Company','Putno','Auto','Privatna svojina','DZO']);
+  const totalRow=report.lastRow;
+  for(const column of[2,3,4,5,6])assert.equal(totalRow.getCell(column).value.result,1);
+  const insurerNames=source.getColumn(1).values.slice(2,-1);assert.equal(new Set(insurerNames).size,insurerNames.length);assert.ok(insurerNames.includes('Uniqa'));
 });
 
 test('tenant data and analytics are isolated between companies',async()=>{
