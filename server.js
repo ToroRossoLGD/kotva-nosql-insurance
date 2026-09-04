@@ -1,4 +1,4 @@
-const express=require('express');const path=require('path');const cors=require('cors');const bcrypt=require('bcryptjs');const jwt=require('jsonwebtoken');const{Database,aql}=require('arangojs');require('dotenv').config();
+const express=require('express');const path=require('path');const cors=require('cors');const bcrypt=require('bcryptjs');const jwt=require('jsonwebtoken');const ExcelJS=require('exceljs');const{Database,aql}=require('arangojs');require('dotenv').config();
 const app=express(),PORT=+process.env.PORT||3000,DB_NAME=process.env.ARANGO_DB||'kotva';
 const JWT_SECRET=process.env.JWT_SECRET||'kotva-local-demo-secret-change-before-production';
 const TOKEN_TTL_SECONDS=8*60*60;
@@ -13,7 +13,8 @@ const DEMO_USERS=[
   {id:'user-analyst',tenantId:DEFAULT_TENANT_ID,tenantName:'Kotva Insurance',username:'analyst',displayName:'Portfolio Analyst',role:'analyst',password:process.env.ANALYST_PASSWORD||'Analyst123!'},
   {id:'user-adria-admin',tenantId:'tenant-adria',tenantName:'Adria Brokers',username:'adria-admin',displayName:'Adria Administrator',role:'admin',password:process.env.ADRIA_ADMIN_PASSWORD||'Adria123!'}
 ];
-const TYPES=['Putno','Životno','Auto','Privatna svojina'],MONTHS=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Avg','Sep','Okt','Nov','Dec'];
+const TYPES=['Putno','Životno','Auto','Privatna svojina','DZO'],MONTHS=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Avg','Sep','Okt','Nov','Dec'];
+const EXPORT_TYPES=['Putno','Auto','Privatna svojina','DZO'];
 const VEHICLE_TYPES=['Putničko','Teretno','Motor'],BODY_TYPES=['Limuzina','SUV','Karavan'];
 const INSURERS=['Uniqa','Generali','Milenijum','Sava'].map((name,i)=>({id:`kuca-${i+1}`,tenantId:DEFAULT_TENANT_ID,name}));
 const CLIENTS=[['Ana','Marković',29,'Putno','Uniqa','2026-01-15'],['Nemanja','Petrović',41,'Životno','Generali','2026-01-18'],['Milica','Jovanović',34,'Auto','Milenijum','2026-02-09'],['Stefan','Đurić',52,'Privatna svojina','Sava','2026-02-12'],['Jovana','Nikolić',27,'Putno','Uniqa','2026-03-15'],['Viktor','Bojić',46,'Životno','Generali','2026-03-21'],['Sara','Pavlović',31,'Putno','Sava','2026-04-04'],['Luka','Mihajlović',39,'Auto','Milenijum','2026-04-20'],['Marija','Stojanović',48,'Privatna svojina','Sava','2026-05-09'],['Petar','Milošević',36,'Putno','Generali','2026-05-24'],['Ivana','Kostić',44,'Auto','Uniqa','2026-06-11'],['Marko','Lukić',51,'Životno','Sava','2026-06-19'],['Teodora','Ilić',28,'Putno','Milenijum','2026-07-13'],['Nikola','Perić',42,'Privatna svojina','Generali','2026-08-02'],['Katarina','Savić',33,'Auto','Uniqa','2026-09-17']].map(([name,surname,age,insuranceType,insurer,saleDate],i)=>({id:`korisnik-${i+1}`,tenantId:DEFAULT_TENANT_ID,name,surname,age,insuranceType,insurer,saleDate}));
@@ -163,6 +164,46 @@ function analytics(clients,insurers){
     .map(([age,count])=>({x:age,y:count})).sort((a,b)=>a.x-b.x);
   return{totalClients:clients.length,averageAge:clients.length?+(clients.reduce((sum,client)=>sum+client.age,0)/clients.length).toFixed(1):0,topInsurer,busiestMonth,travelShare:clients.length?+(count('insuranceType','Putno')*100/clients.length).toFixed(1):0,insurerDistribution,avgAgeByInsurance,monthlyTravelSales,julyTravelSales,ageDistribution,insuranceTypes:TYPES.map(type=>({type,count:count('insuranceType',type)}))}
 }
+async function buildMarketShareWorkbook(clients,insurers,tenantName){
+  const workbook=new ExcelJS.Workbook();workbook.creator='Kotva';workbook.created=new Date();workbook.calcProperties.fullCalcOnLoad=true;
+  const report=workbook.addWorksheet('Market Share',{views:[{state:'frozen',xSplit:1,ySplit:5}]});
+  const source=workbook.addWorksheet('Source Counts',{views:[{state:'frozen',xSplit:1,ySplit:1}]});
+  const insurerNames=insurers.map(item=>item.name).sort((a,b)=>a.localeCompare(b,'sr'));
+  const counts=insurerNames.map(name=>EXPORT_TYPES.map(type=>clients.filter(client=>client.insurer===name&&client.insuranceType===type).length));
+  const totals=EXPORT_TYPES.map((type,index)=>counts.reduce((sum,row)=>sum+row[index],0));
+  const selectedTotal=totals.reduce((sum,value)=>sum+value,0);
+
+  source.addRow(['Insurance Company',...EXPORT_TYPES,'Total']);
+  counts.forEach((row,index)=>source.addRow([insurerNames[index],...row,row.reduce((sum,value)=>sum+value,0)]));
+  source.addRow(['Total',...totals,selectedTotal]);
+  source.columns=[{width:28},...EXPORT_TYPES.map(()=>({width:20})),{width:16}];
+  source.getRow(1).height=26;source.getRow(1).font={bold:true,color:{argb:'FFFFFFFF'}};source.getRow(1).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF102D46'}};
+  source.getRow(source.rowCount).font={bold:true};source.getRow(source.rowCount).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFEAF0F4'}};
+  source.eachRow(row=>row.eachCell(cell=>{cell.border={bottom:{style:'thin',color:{argb:'FFE1E7EB'}}};cell.alignment={vertical:'middle',horizontal:cell.column===1?'left':'right'}}));
+
+  report.mergeCells('A1:F1');report.getCell('A1').value='INSURANCE MARKET SHARE';report.getCell('A1').font={name:'Arial',size:20,bold:true,color:{argb:'FFFFFFFF'}};report.getCell('A1').fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF102D46'}};report.getCell('A1').alignment={vertical:'middle',horizontal:'left'};report.getRow(1).height=38;
+  report.mergeCells('A2:F2');report.getCell('A2').value=`Company: ${tenantName}  |  Generated: ${new Date().toLocaleString('en-GB')}`;report.getCell('A2').font={italic:true,color:{argb:'FF5C6B76'}};
+  report.mergeCells('A3:F3');report.getCell('A3').value='Each percentage shows an insurer’s share of all policies sold in that insurance category. Column totals equal 100% when sales exist.';report.getCell('A3').font={size:10,color:{argb:'FF6B7882'}};
+  report.addRow([]);report.addRow(['Insurance Company',...EXPORT_TYPES,'Selected Types Total']);
+  const header=report.getRow(5);header.height=30;header.font={bold:true,color:{argb:'FFFFFFFF'}};header.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFF6B35'}};header.alignment={vertical:'middle',horizontal:'center',wrapText:true};
+  const sourceTotalRow=insurerNames.length+2;
+  insurerNames.forEach((name,index)=>{
+    const reportRow=index+6,sourceRow=index+2,row=report.getRow(reportRow);row.getCell(1).value=name;row.getCell(1).font={bold:true,color:{argb:'FF17232D'}};
+    EXPORT_TYPES.forEach((type,typeIndex)=>{
+      const column=String.fromCharCode(66+typeIndex),value=totals[typeIndex]?counts[index][typeIndex]/totals[typeIndex]:0,cell=row.getCell(typeIndex+2);
+      cell.value={formula:`IF('Source Counts'!${column}$${sourceTotalRow}=0,0,'Source Counts'!${column}${sourceRow}/'Source Counts'!${column}$${sourceTotalRow})`,result:value};cell.numFmt='0.0%';
+      cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:value>=0.4?'FFBDE8DA':value>=0.2?'FFE3F3EC':'FFF7F9FA'}};
+    });
+    const totalValue=selectedTotal?counts[index].reduce((sum,value)=>sum+value,0)/selectedTotal:0;
+    row.getCell(6).value={formula:`IF('Source Counts'!F$${sourceTotalRow}=0,0,'Source Counts'!F${sourceRow}/'Source Counts'!F$${sourceTotalRow})`,result:totalValue};row.getCell(6).numFmt='0.0%';row.getCell(6).font={bold:true};row.height=25;
+  });
+  const totalRow=report.getRow(insurerNames.length+6);totalRow.getCell(1).value='Total';
+  EXPORT_TYPES.forEach((type,index)=>{const column=String.fromCharCode(66+index),hasSales=totals[index]>0;totalRow.getCell(index+2).value={formula:`IF('Source Counts'!${column}$${sourceTotalRow}=0,0,SUM(${column}6:${column}${insurerNames.length+5}))`,result:hasSales?1:0};totalRow.getCell(index+2).numFmt='0.0%'});
+  totalRow.getCell(6).value={formula:`IF('Source Counts'!F$${sourceTotalRow}=0,0,SUM(F6:F${insurerNames.length+5}))`,result:selectedTotal?1:0};totalRow.getCell(6).numFmt='0.0%';totalRow.font={bold:true};totalRow.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFEAF0F4'}};totalRow.height=27;
+  report.columns=[{width:28},{width:18},{width:18},{width:22},{width:18},{width:22}];report.showGridLines=false;
+  for(let rowIndex=5;rowIndex<=insurerNames.length+6;rowIndex++)report.getRow(rowIndex).eachCell(cell=>{cell.border={bottom:{style:'thin',color:{argb:'FFE1E7EB'}}};cell.alignment={vertical:'middle',horizontal:cell.column===1?'left':'center'}});
+  return workbook;
+}
 async function confirmBrokerApproval(clientId,tenantId,user){
   if(mode!=='arango'){
     const client=memoryClients.find(item=>item.id===clientId&&item.tenantId===tenantId);
@@ -225,6 +266,11 @@ app.get('/api/auth/login-attempts',authorize('admin'),async(req,res,next)=>{try{
   const cursor=await db.query(aql`FOR attempt IN login_attempts FILTER attempt.tenantId==${req.user.tenantId} SORT attempt.timestamp DESC LIMIT 100 RETURN UNSET(attempt,"_key","_id","_rev")`);res.json(await cursor.all());
 }catch(error){next(error)}});
 app.get('/api/config',(q,r)=>r.json({insuranceTypes:TYPES,vehicleTypes:VEHICLE_TYPES,bodyTypes:BODY_TYPES,tenant:{id:q.user.tenantId,name:q.user.tenantName}}));app.get('/api/clients',async(q,r,n)=>{try{r.json(await all('clients',memoryClients,q.user.tenantId))}catch(e){n(e)}});app.get('/api/insurers',async(q,r,n)=>{try{r.json(await all('insurers',memoryInsurers,q.user.tenantId))}catch(e){n(e)}});
+app.get('/api/exports/insurance-market-share.xlsx',async(q,r,n)=>{try{
+  const clients=await all('clients',memoryClients,q.user.tenantId),insurers=await all('insurers',memoryInsurers,q.user.tenantId),workbook=await buildMarketShareWorkbook(clients,insurers,q.user.tenantName);
+  const buffer=await workbook.xlsx.writeBuffer(),date=new Date().toISOString().slice(0,10);
+  r.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');r.setHeader('Content-Disposition',`attachment; filename="kotva-market-share-${date}.xlsx"`);r.setHeader('Cache-Control','no-store');r.send(Buffer.from(buffer));
+}catch(e){n(e)}});
 app.post('/api/insurers',authorize('admin'),async(q,r,n)=>{try{const name=String(q.body.name||'').trim();if(name.length<2||name.length>80)return r.status(400).json({message:'Naziv mora imati od 2 do 80 znakova.'});const current=await all('insurers',memoryInsurers,q.user.tenantId);if(current.some(x=>x.name.localeCompare(name,'sr',{sensitivity:'base'})===0))return r.status(409).json({message:'Ta osiguravajuća kuća već postoji.'});r.status(201).json(await save('insurers',{name},memoryInsurers,q.user.tenantId))}catch(e){n(e)}});
 app.post('/api/clients',authorize('admin','agent'),async(q,r,n)=>{try{
   const x={name:String(q.body.name||'').trim(),surname:String(q.body.surname||'').trim(),age:+q.body.age,insuranceType:String(q.body.insuranceType||''),insurer:String(q.body.insurer||'').trim(),saleDate:String(q.body.saleDate||'')};

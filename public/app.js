@@ -39,6 +39,13 @@ $('#clients-body').addEventListener('click',async event=>{
   try{await api(`/api/clients/${encodeURIComponent(button.dataset.brokerClient)}/broker-approval`,{method:'POST'});await refresh();window.alert('Broker je potvrdio podatke vozila.')}
   catch(error){window.alert(error.message);button.disabled=false}
 });
+$('#excel-export').addEventListener('click',async()=>{
+  const button=$('#excel-export'),original=button.textContent;button.disabled=true;button.textContent='Priprema...';
+  try{
+    const response=await fetch('/api/exports/insurance-market-share.xlsx');if(response.status===401){showLogin();throw Error('Sesija je istekla.')}if(!response.ok){const error=await response.json();throw Error(error.message||'Excel izvoz nije uspeo.')}
+    const blob=await response.blob(),disposition=response.headers.get('content-disposition')||'',match=disposition.match(/filename="([^"]+)"/),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=match?.[1]||'kotva-market-share.xlsx';document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+  }catch(error){window.alert(error.message)}finally{button.disabled=false;button.textContent=original}
+});
 $('#client-form').addEventListener('submit',async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{await api('/api/clients',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(new FormData(e.target)))});e.target.reset();$('#sale-date').valueAsDate=new Date();message('#client-message','Korisnik je uspešno sačuvan.');await refresh()}catch(x){message('#client-message',x.message,true)}finally{b.disabled=false}});$('#insurer-form').addEventListener('submit',async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{await api('/api/insurers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(new FormData(e.target)))});e.target.reset();message('#insurer-message','Kuća je dodata.');await options();await refresh()}catch(x){message('#insurer-message',x.message,true)}finally{b.disabled=false}});document.querySelectorAll('[data-scroll]').forEach(b=>b.onclick=()=>document.getElementById(b.dataset.scroll).scrollIntoView({behavior:'smooth'}));
 $('#client-form').addEventListener('reset',()=>setTimeout(toggleConditionalFields));
 let currentUser=null;

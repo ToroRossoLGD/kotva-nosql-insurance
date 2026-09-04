@@ -9,4 +9,5 @@
 .forms.single{grid-template-columns:1fr}
 .travel-meta{display:block;margin-top:3px;color:var(--muted);font-size:9px;white-space:nowrap}
 .broker-button{border:0;border-radius:7px;padding:7px 9px;background:#fff0ea;color:#c94b1d;font-size:10px;font-weight:800;cursor:pointer;white-space:nowrap}.broker-button:disabled{opacity:.55}.broker-confirmed{color:var(--green);font-size:11px;font-weight:800}.broker-pending{color:#a16c00;font-size:11px;font-weight:700}
+.heading-actions{display:flex;align-items:center;gap:10px}.heading-actions .secondary{padding:9px 13px;font-size:11px}
 @media(max-width:800px){.sidebar-bottom{margin-left:auto}.sidebar-bottom .db-card{display:none}.user-card{padding:8px 10px}}

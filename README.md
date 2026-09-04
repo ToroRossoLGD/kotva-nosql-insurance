@@ -17,6 +17,7 @@ that update automatically when new records are added.
 - Require JMBG, passport number, and destination for every new travel-insurance client
 - Capture vehicle make, engine capacity, vehicle category, and passenger-car body type for auto insurance
 - Track extensible broker approval metadata for vehicle insurance
+- Export a tenant-specific Excel market-share report for travel, auto, property, and DZO insurance
 - Display recently added clients in a responsive table
 - Search names regardless of letter case and diacritics
 - Automatically update statistics and charts after data entry
@@ -204,6 +205,20 @@ secrets and must not expose the database directly.
 | POST | `/api/insurers` | Create an insurance company |
 | GET | `/api/search?q=query` | Search clients by name |
 | GET | `/api/analytics` | Return the dashboard analytics data |
+| GET | `/api/exports/insurance-market-share.xlsx` | Download the current tenant's Excel market-share report |
+
+## Excel Market-Share Export
+
+The dashboard can generate an `.xlsx` workbook from current database records.
+Insurance companies are listed vertically, while `Putno`, `Auto`, `Privatna
+svojina`, and `DZO` are shown as columns. Each percentage represents the
+company's share of all policies sold in that category, making category leaders
+immediately visible. DZO is supported as an insurance type even when its current
+sales count is zero.
+
+The workbook includes a formatted percentage report with formula-backed totals
+and a separate source-count sheet for auditing the calculations. Exported data
+is automatically restricted to the signed-in user's tenant.
 
 ## NoSQL Concepts Demonstrated
 
