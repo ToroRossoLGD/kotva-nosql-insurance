@@ -14,6 +14,7 @@ that update automatically when new records are added.
 - Create clients with personal and insurance information
 - Add new insurance companies dynamically
 - Store policy sale dates and insurance categories
+- Require JMBG, passport number, and destination for every new travel-insurance client
 - Display recently added clients in a responsive table
 - Search names regardless of letter case and diacritics
 - Automatically update statistics and charts after data entry
@@ -205,6 +206,7 @@ secrets and must not expose the database directly.
 
 - Flexible JSON document model
 - Shared-database multi-tenancy with tenant-scoped queries and compound indexes
+- Conditional data validation and a tenant-scoped unique JMBG index
 - Denormalization
 - Persistent and inverted indexes
 - Text normalization with an ArangoDB analyzer

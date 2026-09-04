@@ -1,4 +1,5 @@
 const $=s=>document.querySelector(s),charts={},colors=['#ff6b35','#112f4a','#39a88e','#f2b84b','#7b6ee6','#e85d75'];
+const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,character=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[character]));
 const chartColor=index=>colors[index]||`hsl(${(index*57)%360} 62% 53%)`;
 const doughnutPercentLabels={id:'doughnutPercentLabels',afterDatasetsDraw(chart){
   const values=chart.data.datasets[0].data,total=values.reduce((sum,value)=>sum+value,0);
@@ -19,9 +20,11 @@ function draw(d){
   make('age-policy-chart','scatter',{datasets:[{label:'Broj polisa po starosti',data:d.ageDistribution,backgroundColor:'#39a88e',borderColor:'#177f6b',pointRadius:6,pointHoverRadius:9}]},{scales:{x:{type:'linear',title:{display:true,text:'Starost korisnika (godine)'},ticks:{precision:0}},y:{beginAtZero:true,title:{display:true,text:'Broj zaključenih polisa'},ticks:{precision:0}}},plugins:{legend:{display:false},tooltip:{callbacks:{label:context=>`${context.raw.x} godina: ${context.raw.y} polisa`}}}});
   make('type-chart','bar',{labels:d.insuranceTypes.map(x=>x.type),datasets:[{data:d.insuranceTypes.map(x=>x.count),backgroundColor:colors,borderRadius:7}]},{indexAxis:'y',scales:{x:{beginAtZero:true,ticks:{precision:0}}},plugins:{legend:{display:false}}})
 }
-function clients(a){$('#client-count').textContent=`${a.length} korisnika`;$('#clients-body').innerHTML=[...a].reverse().slice(0,10).map(x=>`<tr><td><i class="avatar">${x.name[0]}${x.surname[0]}</i><strong>${x.name} ${x.surname}</strong></td><td>${x.age}</td><td><span class="tag">${x.insuranceType}</span></td><td>${x.insurer}</td><td>${new Date(x.saleDate+'T00:00:00').toLocaleDateString('sr-RS')}</td></tr>`).join('')}
+function clients(a){$('#client-count').textContent=`${a.length} korisnika`;$('#clients-body').innerHTML=[...a].reverse().slice(0,10).map(x=>{const travel=x.insuranceType==='Putno'&&x.passportNumber?`${escapeHtml(x.destination)}<small class="travel-meta">Pasoš: ${escapeHtml(x.passportNumber)} · JMBG: •••••••••${escapeHtml(x.jmbg?.slice(-4))}</small>`:'—';return`<tr><td><i class="avatar">${escapeHtml(x.name[0])}${escapeHtml(x.surname[0])}</i><strong>${escapeHtml(x.name)} ${escapeHtml(x.surname)}</strong></td><td>${x.age}</td><td><span class="tag">${escapeHtml(x.insuranceType)}</span></td><td>${escapeHtml(x.insurer)}</td><td>${travel}</td><td>${new Date(x.saleDate+'T00:00:00').toLocaleDateString('sr-RS')}</td></tr>`}).join('')}
 async function refresh(){const[d,c,h]=await Promise.all([api('/api/analytics'),api('/api/clients'),api('/api/health')]);stats(d);draw(d);clients(c);$('#db-status').textContent=h.database==='arango'?'ArangoDB aktivan':'Demo režim';$('#db-name').textContent=h.database==='arango'?`Baza: ${h.databaseName}`:'Podaci u memoriji'}
-async function options(){const[i,c]=await Promise.all([api('/api/insurers'),api('/api/config')]);$('#insurer-select').innerHTML=i.map(x=>`<option>${x.name}</option>`).join('');$('#type-select').innerHTML=c.insuranceTypes.map(x=>`<option>${x}</option>`).join('')}
+async function options(){const[i,c]=await Promise.all([api('/api/insurers'),api('/api/config')]);$('#insurer-select').innerHTML=i.map(x=>`<option>${escapeHtml(x.name)}</option>`).join('');$('#type-select').innerHTML=c.insuranceTypes.map(x=>`<option>${escapeHtml(x)}</option>`).join('');toggleTravelFields()}
+function toggleTravelFields(){const required=$('#type-select').value==='Putno';document.querySelectorAll('.travel-field').forEach(label=>{label.hidden=!required;const input=label.querySelector('input');input.required=required;if(!required)input.value=''})}
+$('#type-select').addEventListener('change',toggleTravelFields);
 let searchTimer;
 $('#client-search').addEventListener('input',event=>{
   clearTimeout(searchTimer);
@@ -31,6 +34,7 @@ $('#client-search').addEventListener('input',event=>{
   },250)
 });
 $('#client-form').addEventListener('submit',async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{await api('/api/clients',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(new FormData(e.target)))});e.target.reset();$('#sale-date').valueAsDate=new Date();message('#client-message','Korisnik je uspešno sačuvan.');await refresh()}catch(x){message('#client-message',x.message,true)}finally{b.disabled=false}});$('#insurer-form').addEventListener('submit',async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{await api('/api/insurers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(new FormData(e.target)))});e.target.reset();message('#insurer-message','Kuća je dodata.');await options();await refresh()}catch(x){message('#insurer-message',x.message,true)}finally{b.disabled=false}});document.querySelectorAll('[data-scroll]').forEach(b=>b.onclick=()=>document.getElementById(b.dataset.scroll).scrollIntoView({behavior:'smooth'}));
+$('#client-form').addEventListener('reset',()=>setTimeout(toggleTravelFields));
 let currentUser=null;
 function showLogin(){currentUser=null;$('#app-shell').hidden=true;$('#login-screen').hidden=false}
 function applyPermissions(user){

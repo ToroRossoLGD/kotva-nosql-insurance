@@ -72,6 +72,9 @@ async function init(){
       type:'persistent',name:'idx_tenant_insurance_type_sale_date',
       fields:['tenantId','insuranceType','saleDate'],unique:false,sparse:false
     });
+    await clientCollection.ensureIndex({
+      type:'persistent',name:'idx_tenant_jmbg',fields:['tenantId','jmbg'],unique:true,sparse:true
+    });
     await insurerCollection.ensureIndex({type:'persistent',name:'idx_tenant_insurer_name',fields:['tenantId','name'],unique:true,sparse:false});
     await db.collection('login_attempts').ensureIndex({type:'persistent',name:'idx_tenant_login_time',fields:['tenantId','timestamp'],unique:false,sparse:true});
     const graph=db.graph('kotva_insurance_graph');
@@ -215,6 +218,13 @@ app.post('/api/clients',authorize('admin','agent'),async(q,r,n)=>{try{
   if(!Number.isInteger(x.age)||x.age<0||x.age>120)return r.status(400).json({message:'Godine moraju biti ceo broj od 0 do 120.'});
   if(!TYPES.includes(x.insuranceType))return r.status(400).json({message:'Izaberite važeći tip osiguranja.'});
   if(!/^\d{4}-\d{2}-\d{2}$/.test(x.saleDate))return r.status(400).json({message:'Datum prodaje nije ispravan.'});
+  if(x.insuranceType==='Putno'){
+    x.jmbg=String(q.body.jmbg||'').trim();x.passportNumber=String(q.body.passportNumber||'').trim().toUpperCase();x.destination=String(q.body.destination||'').trim();
+    if(!/^\d{13}$/.test(x.jmbg))return r.status(400).json({message:'JMBG mora sadržati tačno 13 cifara.'});
+    if(!/^[A-Z0-9-]{6,15}$/.test(x.passportNumber))return r.status(400).json({message:'Broj pasoša mora imati 6–15 slova, cifara ili crtica.'});
+    if(x.destination.length<2||x.destination.length>80)return r.status(400).json({message:'Destinacija mora imati od 2 do 80 znakova.'});
+    if((await all('clients',memoryClients,q.user.tenantId)).some(client=>client.jmbg===x.jmbg))return r.status(409).json({message:'Korisnik sa tim JMBG-om već postoji u vašoj firmi.'});
+  }
   if(!(await all('insurers',memoryInsurers,q.user.tenantId)).some(i=>i.name===x.insurer))return r.status(400).json({message:'Izaberite postojeću osiguravajuću kuću.'});
   const client=await save('clients',x,memoryClients,q.user.tenantId);await syncInsuranceGraph();r.status(201).json(client)
 }catch(e){n(e)}});

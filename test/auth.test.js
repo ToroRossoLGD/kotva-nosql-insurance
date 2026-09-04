@@ -62,6 +62,23 @@ test('administrator has full access and logout clears the session',async()=>{
   assert.match(logout.response.headers.get('set-cookie'),/kotva_session=;/);
 });
 
+test('travel insurance requires and stores JMBG, passport, and destination',async()=>{
+  const agent=await login('agent','Agent123!');
+  const base={name:'Travel',surname:'Customer',age:28,insuranceType:'Putno',insurer:'Uniqa',saleDate:'2026-09-03'};
+  const missing=await request('/api/clients',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify(base)});
+  assert.equal(missing.response.status,400);assert.match(missing.body.message,/JMBG/);
+
+  const travelDetails={...base,jmbg:'0303990712345',passportNumber:'PA-123456',destination:'Greece'};
+  const created=await request('/api/clients',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify(travelDetails)});
+  assert.equal(created.response.status,201);
+  assert.equal(created.body.jmbg,travelDetails.jmbg);
+  assert.equal(created.body.passportNumber,travelDetails.passportNumber);
+  assert.equal(created.body.destination,travelDetails.destination);
+
+  const duplicate=await request('/api/clients',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify({...travelDetails,name:'Duplicate'})});
+  assert.equal(duplicate.response.status,409);
+});
+
 test('tenant data and analytics are isolated between companies',async()=>{
   const kotva=await login('admin','Admin123!');
   const adria=await login('adria-admin','Adria123!');
