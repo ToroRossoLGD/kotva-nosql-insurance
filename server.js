@@ -14,6 +14,7 @@ const DEMO_USERS=[
   {id:'user-adria-admin',tenantId:'tenant-adria',tenantName:'Adria Brokers',username:'adria-admin',displayName:'Adria Administrator',role:'admin',password:process.env.ADRIA_ADMIN_PASSWORD||'Adria123!'}
 ];
 const TYPES=['Putno','Životno','Auto','Privatna svojina'],MONTHS=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Avg','Sep','Okt','Nov','Dec'];
+const VEHICLE_TYPES=['Putničko','Teretno','Motor'],BODY_TYPES=['Limuzina','SUV','Karavan'];
 const INSURERS=['Uniqa','Generali','Milenijum','Sava'].map((name,i)=>({id:`kuca-${i+1}`,tenantId:DEFAULT_TENANT_ID,name}));
 const CLIENTS=[['Ana','Marković',29,'Putno','Uniqa','2026-01-15'],['Nemanja','Petrović',41,'Životno','Generali','2026-01-18'],['Milica','Jovanović',34,'Auto','Milenijum','2026-02-09'],['Stefan','Đurić',52,'Privatna svojina','Sava','2026-02-12'],['Jovana','Nikolić',27,'Putno','Uniqa','2026-03-15'],['Viktor','Bojić',46,'Životno','Generali','2026-03-21'],['Sara','Pavlović',31,'Putno','Sava','2026-04-04'],['Luka','Mihajlović',39,'Auto','Milenijum','2026-04-20'],['Marija','Stojanović',48,'Privatna svojina','Sava','2026-05-09'],['Petar','Milošević',36,'Putno','Generali','2026-05-24'],['Ivana','Kostić',44,'Auto','Uniqa','2026-06-11'],['Marko','Lukić',51,'Životno','Sava','2026-06-19'],['Teodora','Ilić',28,'Putno','Milenijum','2026-07-13'],['Nikola','Perić',42,'Privatna svojina','Generali','2026-08-02'],['Katarina','Savić',33,'Auto','Uniqa','2026-09-17']].map(([name,surname,age,insuranceType,insurer,saleDate],i)=>({id:`korisnik-${i+1}`,tenantId:DEFAULT_TENANT_ID,name,surname,age,insuranceType,insurer,saleDate}));
 const TRAVEL_TARGETS=[6,5,4,3,2,6,7,6,4,3,2,8];
@@ -124,7 +125,8 @@ async function syncInsuranceGraph(){
     FOR client IN clients
       LET policyKey=CONCAT("polisa-",client.id)
       LET basePremium=client.insuranceType=="Putno"?3500:client.insuranceType=="Životno"?12000:client.insuranceType=="Auto"?18000:9000
-      LET policy={_key:policyKey,tenantId:client.tenantId,clientId:client.id,insuranceType:client.insuranceType,saleDate:client.saleDate,validFrom:client.saleDate,validUntil:DATE_ADD(client.saleDate,1,"year"),premium:basePremium+client.age*25,status:"Aktivna"}
+      LET vehicleDetails=client.insuranceType=="Auto"?{make:client.vehicleMake,engineCapacity:client.engineCapacity,vehicleType:client.vehicleType,bodyType:client.bodyType}:null
+      LET policy={_key:policyKey,tenantId:client.tenantId,clientId:client.id,insuranceType:client.insuranceType,saleDate:client.saleDate,validFrom:client.saleDate,validUntil:DATE_ADD(client.saleDate,1,"year"),premium:basePremium+client.age*25,status:"Aktivna",vehicleDetails,brokerApproval:client.brokerApproval}
       UPSERT {_key:policyKey} INSERT policy UPDATE policy IN policies
   `);
   await db.query(aql`
@@ -160,6 +162,18 @@ function analytics(clients,insurers){
   const ageDistribution=[...clients.reduce((ages,client)=>ages.set(client.age,(ages.get(client.age)||0)+1),new Map())]
     .map(([age,count])=>({x:age,y:count})).sort((a,b)=>a.x-b.x);
   return{totalClients:clients.length,averageAge:clients.length?+(clients.reduce((sum,client)=>sum+client.age,0)/clients.length).toFixed(1):0,topInsurer,busiestMonth,travelShare:clients.length?+(count('insuranceType','Putno')*100/clients.length).toFixed(1):0,insurerDistribution,avgAgeByInsurance,monthlyTravelSales,julyTravelSales,ageDistribution,insuranceTypes:TYPES.map(type=>({type,count:count('insuranceType',type)}))}
+}
+async function confirmBrokerApproval(clientId,tenantId,user){
+  if(mode!=='arango'){
+    const client=memoryClients.find(item=>item.id===clientId&&item.tenantId===tenantId);
+    if(!client)return null;if(client.insuranceType!=='Auto')return false;
+    client.brokerApproval={status:'confirmed',confirmedAt:new Date().toISOString(),confirmedBy:{id:user.id,username:user.username,displayName:user.displayName}};return client;
+  }
+  const cursor=await db.query(aql`FOR client IN clients FILTER client.id==${clientId} AND client.tenantId==${tenantId} LIMIT 1 RETURN client`);
+  const client=await cursor.next();if(!client)return null;if(client.insuranceType!=='Auto')return false;
+  const brokerApproval={status:'confirmed',confirmedAt:new Date().toISOString(),confirmedBy:{id:user.id,username:user.username,displayName:user.displayName}};
+  const updateCursor=await db.query(aql`UPDATE ${client._key} WITH {brokerApproval:${brokerApproval}} IN clients RETURN NEW`);
+  return clean(await updateCursor.next());
 }
 function cookieValue(req,name){
   const cookies=String(req.headers.cookie||'').split(';').map(value=>value.trim());
@@ -210,7 +224,7 @@ app.get('/api/auth/login-attempts',authorize('admin'),async(req,res,next)=>{try{
   if(mode!=='arango')return res.json(memoryLoginAttempts.filter(item=>item.tenantId===req.user.tenantId).reverse().slice(0,100));
   const cursor=await db.query(aql`FOR attempt IN login_attempts FILTER attempt.tenantId==${req.user.tenantId} SORT attempt.timestamp DESC LIMIT 100 RETURN UNSET(attempt,"_key","_id","_rev")`);res.json(await cursor.all());
 }catch(error){next(error)}});
-app.get('/api/config',(q,r)=>r.json({insuranceTypes:TYPES,tenant:{id:q.user.tenantId,name:q.user.tenantName}}));app.get('/api/clients',async(q,r,n)=>{try{r.json(await all('clients',memoryClients,q.user.tenantId))}catch(e){n(e)}});app.get('/api/insurers',async(q,r,n)=>{try{r.json(await all('insurers',memoryInsurers,q.user.tenantId))}catch(e){n(e)}});
+app.get('/api/config',(q,r)=>r.json({insuranceTypes:TYPES,vehicleTypes:VEHICLE_TYPES,bodyTypes:BODY_TYPES,tenant:{id:q.user.tenantId,name:q.user.tenantName}}));app.get('/api/clients',async(q,r,n)=>{try{r.json(await all('clients',memoryClients,q.user.tenantId))}catch(e){n(e)}});app.get('/api/insurers',async(q,r,n)=>{try{r.json(await all('insurers',memoryInsurers,q.user.tenantId))}catch(e){n(e)}});
 app.post('/api/insurers',authorize('admin'),async(q,r,n)=>{try{const name=String(q.body.name||'').trim();if(name.length<2||name.length>80)return r.status(400).json({message:'Naziv mora imati od 2 do 80 znakova.'});const current=await all('insurers',memoryInsurers,q.user.tenantId);if(current.some(x=>x.name.localeCompare(name,'sr',{sensitivity:'base'})===0))return r.status(409).json({message:'Ta osiguravajuća kuća već postoji.'});r.status(201).json(await save('insurers',{name},memoryInsurers,q.user.tenantId))}catch(e){n(e)}});
 app.post('/api/clients',authorize('admin','agent'),async(q,r,n)=>{try{
   const x={name:String(q.body.name||'').trim(),surname:String(q.body.surname||'').trim(),age:+q.body.age,insuranceType:String(q.body.insuranceType||''),insurer:String(q.body.insurer||'').trim(),saleDate:String(q.body.saleDate||'')};
@@ -225,8 +239,24 @@ app.post('/api/clients',authorize('admin','agent'),async(q,r,n)=>{try{
     if(x.destination.length<2||x.destination.length>80)return r.status(400).json({message:'Destinacija mora imati od 2 do 80 znakova.'});
     if((await all('clients',memoryClients,q.user.tenantId)).some(client=>client.jmbg===x.jmbg))return r.status(409).json({message:'Korisnik sa tim JMBG-om već postoji u vašoj firmi.'});
   }
+  if(x.insuranceType==='Auto'){
+    x.vehicleMake=String(q.body.vehicleMake||'').trim();x.engineCapacity=Number(q.body.engineCapacity);x.vehicleType=String(q.body.vehicleType||'').trim();x.bodyType=String(q.body.bodyType||'').trim();
+    if(x.vehicleMake.length<2||x.vehicleMake.length>50)return r.status(400).json({message:'Marka vozila mora imati od 2 do 50 znakova.'});
+    if(!Number.isInteger(x.engineCapacity)||x.engineCapacity<50||x.engineCapacity>10000)return r.status(400).json({message:'Kubikaža mora biti ceo broj između 50 i 10000 cm³.'});
+    if(!VEHICLE_TYPES.includes(x.vehicleType))return r.status(400).json({message:'Izaberite važeću vrstu vozila.'});
+    if(x.vehicleType==='Putničko'&&!BODY_TYPES.includes(x.bodyType))return r.status(400).json({message:'Za putničko vozilo izaberite limuzinu, SUV ili karavan.'});
+    if(x.vehicleType!=='Putničko')delete x.bodyType;
+    x.brokerApproval={status:'pending',confirmedAt:null,confirmedBy:null};
+  }
   if(!(await all('insurers',memoryInsurers,q.user.tenantId)).some(i=>i.name===x.insurer))return r.status(400).json({message:'Izaberite postojeću osiguravajuću kuću.'});
   const client=await save('clients',x,memoryClients,q.user.tenantId);await syncInsuranceGraph();r.status(201).json(client)
+}catch(e){n(e)}});
+app.post('/api/clients/:id/broker-approval',authorize('admin','agent'),async(q,r,n)=>{try{
+  const clientId=String(q.params.id||'');if(!clientId||clientId.length>120)return r.status(400).json({message:'Identifikator korisnika nije ispravan.'});
+  const client=await confirmBrokerApproval(clientId,q.user.tenantId,q.user);
+  if(client===null)return r.status(404).json({message:'Korisnik nije pronađen.'});
+  if(client===false)return r.status(400).json({message:'Broker potvrda je dostupna samo za auto-osiguranje.'});
+  await syncInsuranceGraph();r.json(client);
 }catch(e){n(e)}});
 app.get('/api/search',async(q,r,n)=>{try{
   const term=String(q.query.q||'').trim();
