@@ -19,6 +19,7 @@ const POLICY_STATUSES=['Nacrt','Aktivna','Istekla','Otkazana'];
 const PAYMENT_METHODS=['Gotovina','Kartica','Bankovni transfer','Rate'];
 const PAYMENT_STATUSES=['Neplaćeno','Delimično plaćeno','Plaćeno'];
 const CURRENCIES=['RSD','EUR'];
+const CLAIM_STATUSES=['Prijavljena','U obradi','Odobrena','Odbijena','Isplaćena'];
 const VEHICLE_TYPES=['Putničko','Teretno','Motor'],BODY_TYPES=['Limuzina','SUV','Karavan'];
 const INSURERS=['Uniqa','Generali','Milenijum','Sava'].map((name,i)=>({id:`kuca-${i+1}`,tenantId:DEFAULT_TENANT_ID,name}));
 const CLIENTS=[['Ana','Marković',29,'Putno','Uniqa','2026-01-15'],['Nemanja','Petrović',41,'Životno','Generali','2026-01-18'],['Milica','Jovanović',34,'Auto','Milenijum','2026-02-09'],['Stefan','Đurić',52,'Privatna svojina','Sava','2026-02-12'],['Jovana','Nikolić',27,'Putno','Uniqa','2026-03-15'],['Viktor','Bojić',46,'Životno','Generali','2026-03-21'],['Sara','Pavlović',31,'Putno','Sava','2026-04-04'],['Luka','Mihajlović',39,'Auto','Milenijum','2026-04-20'],['Marija','Stojanović',48,'Privatna svojina','Sava','2026-05-09'],['Petar','Milošević',36,'Putno','Generali','2026-05-24'],['Ivana','Kostić',44,'Auto','Uniqa','2026-06-11'],['Marko','Lukić',51,'Životno','Sava','2026-06-19'],['Teodora','Ilić',28,'Putno','Milenijum','2026-07-13'],['Nikola','Perić',42,'Privatna svojina','Generali','2026-08-02'],['Katarina','Savić',33,'Auto','Uniqa','2026-09-17']].map(([name,surname,age,insuranceType,insurer,saleDate],i)=>({id:`korisnik-${i+1}`,tenantId:DEFAULT_TENANT_ID,name,surname,age,insuranceType,insurer,saleDate}));
@@ -60,7 +61,7 @@ CLIENTS.push(
   {id:'adria-client-1',tenantId:'tenant-adria',name:'Mina',surname:'Kovač',age:32,insuranceType:'Putno',insurer:'Adria Secure',saleDate:'2026-07-12'},
   {id:'adria-client-2',tenantId:'tenant-adria',name:'Ivan',surname:'Marić',age:45,insuranceType:'Auto',insurer:'Blue Shield',saleDate:'2026-08-08'}
 );
-let memoryInsurers=[...INSURERS],memoryClients=[...CLIENTS],memoryUsers=[],memoryLoginAttempts=[],db,mode='memory';const clean=({_key,_id,_rev,...x})=>x,id=p=>`${p}-${Date.now()}-${Math.random().toString(16).slice(2,8)}`,validIsoDate=value=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;const date=new Date(`${value}T00:00:00Z`);return!Number.isNaN(date.valueOf())&&date.toISOString().slice(0,10)===value},newPolicyNumber=tenantId=>`POL-${new Date().toISOString().slice(0,10).replaceAll('-','')}-${tenantId.replace('tenant-','').slice(0,6).toUpperCase()}-${Math.random().toString(36).slice(2,8).toUpperCase()}`;
+let memoryInsurers=[...INSURERS],memoryClients=[...CLIENTS],memoryClaims=[],memoryUsers=[],memoryLoginAttempts=[],db,mode='memory';const clean=({_key,_id,_rev,...x})=>x,id=p=>`${p}-${Date.now()}-${Math.random().toString(16).slice(2,8)}`,validIsoDate=value=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;const date=new Date(`${value}T00:00:00Z`);return!Number.isNaN(date.valueOf())&&date.toISOString().slice(0,10)===value},newPolicyNumber=tenantId=>`POL-${new Date().toISOString().slice(0,10).replaceAll('-','')}-${tenantId.replace('tenant-','').slice(0,6).toUpperCase()}-${Math.random().toString(36).slice(2,8).toUpperCase()}`,newClaimNumber=tenantId=>`CLM-${new Date().toISOString().slice(0,10).replaceAll('-','')}-${tenantId.replace('tenant-','').slice(0,6).toUpperCase()}-${Math.random().toString(36).slice(2,8).toUpperCase()}`;
 async function initializeAuthUsers(){
   memoryUsers=await Promise.all(DEMO_USERS.map(async({password,...user})=>({...user,passwordHash:await bcrypt.hash(password,12),active:true})));
 }
@@ -77,7 +78,7 @@ async function init(){
     const system=new Database({...connection,databaseName:'_system'});
     if(!(await system.listDatabases()).includes(DB_NAME))await system.createDatabase(DB_NAME);
     db=new Database({...connection,databaseName:DB_NAME});
-    for(const name of['clients','insurers','users','login_attempts','tenants']){const col=db.collection(name);if(!(await col.exists()))await col.create()}
+    for(const name of['clients','insurers','users','login_attempts','tenants','claims']){const col=db.collection(name);if(!(await col.exists()))await col.create()}
     const insurerCollection=db.collection('insurers'),clientCollection=db.collection('clients');
     await clientCollection.ensureIndex({
       type:'persistent',name:'idx_tenant_insurance_type_sale_date',
@@ -89,14 +90,18 @@ async function init(){
     await clientCollection.ensureIndex({
       type:'persistent',name:'idx_tenant_policy_number',fields:['tenantId','policyNumber'],unique:true,sparse:true
     });
+    await db.collection('claims').ensureIndex({type:'persistent',name:'idx_tenant_claim_number',fields:['tenantId','claimNumber'],unique:true,sparse:false});
+    await db.collection('claims').ensureIndex({type:'persistent',name:'idx_tenant_claim_status_incident',fields:['tenantId','status','incidentDate'],unique:false,sparse:false});
     await insurerCollection.ensureIndex({type:'persistent',name:'idx_tenant_insurer_name',fields:['tenantId','name'],unique:true,sparse:false});
     await db.collection('login_attempts').ensureIndex({type:'persistent',name:'idx_tenant_login_time',fields:['tenantId','timestamp'],unique:false,sparse:true});
     const graph=db.graph('kotva_insurance_graph');
     if(!(await graph.exists()))await graph.create([
       {collection:'owns',from:['clients'],to:['policies']},
-      {collection:'issued_by',from:['policies'],to:['insurers']}
+      {collection:'issued_by',from:['policies'],to:['insurers']},
+      {collection:'has_claim',from:['policies'],to:['claims']}
     ]);
-    for(const collectionName of['clients','insurers','policies','owns','issued_by']){
+    else if(!(await graph.listEdgeCollections()).includes('has_claim'))await graph.addEdgeDefinition({collection:'has_claim',from:['policies'],to:['claims']});
+    for(const collectionName of['clients','insurers','policies','claims','owns','issued_by','has_claim']){
       await db.query(aql`FOR doc IN ${db.collection(collectionName)} FILTER !HAS(doc,"tenantId") UPDATE doc WITH {tenantId:${DEFAULT_TENANT_ID}} IN ${db.collection(collectionName)}`);
     }
     const nameAnalyzer=db.analyzer('sr_name_search');
@@ -170,6 +175,8 @@ async function syncInsuranceGraph(){
 }
 async function all(collection,fallback,tenantId){if(mode!=='arango')return fallback.filter(item=>item.tenantId===tenantId);const cursor=await db.query(aql`FOR doc IN ${db.collection(collection)} FILTER doc.tenantId==${tenantId} SORT doc._key RETURN doc`);return(await cursor.all()).map(clean)}
 async function save(collection,item,fallback,tenantId){const record={...item,tenantId,id:item.id||id(collection==='clients'?'korisnik':'kuca')};if(mode==='arango')await db.collection(collection).save({...record,_key:record.id});else fallback.push(record);return record}
+async function saveClaim(item,tenantId){const record={...item,tenantId,id:id('steta')};if(mode==='arango'){await db.collection('claims').save({...record,_key:record.id});const edge={_key:`steta-${record.id}`,tenantId,_from:`policies/polisa-${record.clientId}`,_to:`claims/${record.id}`};await db.collection('has_claim').save(edge)}else memoryClaims.push(record);return record}
+async function updateClaimStatus(claimId,tenantId,user,status){const performedBy={id:user.id,username:user.username,displayName:user.displayName},timestamp=new Date().toISOString();if(mode!=='arango'){const claim=memoryClaims.find(item=>item.id===claimId&&item.tenantId===tenantId);if(!claim)return null;const previousStatus=claim.status;claim.status=status;claim.history.push({action:'status_changed',timestamp,performedBy,previousStatus,status});return claim}const cursor=await db.query(aql`FOR claim IN claims FILTER claim.id==${claimId} AND claim.tenantId==${tenantId} LIMIT 1 RETURN claim`),claim=await cursor.next();if(!claim)return null;const history=[...(claim.history||[]),{action:'status_changed',timestamp,performedBy,previousStatus:claim.status,status}],updateCursor=await db.query(aql`UPDATE ${claim._key} WITH {status:${status},history:${history}} IN claims RETURN NEW`);return clean(await updateCursor.next())}
 function analytics(clients,insurers){
   const count=(key,value)=>clients.filter(client=>client[key]===value).length;
   const insurerDistribution=insurers.map(({name})=>({name,count:count('insurer',name)})).sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name));
@@ -300,7 +307,7 @@ app.get('/api/auth/login-attempts',authorize('admin'),async(req,res,next)=>{try{
   if(mode!=='arango')return res.json(memoryLoginAttempts.filter(item=>item.tenantId===req.user.tenantId).reverse().slice(0,100));
   const cursor=await db.query(aql`FOR attempt IN login_attempts FILTER attempt.tenantId==${req.user.tenantId} SORT attempt.timestamp DESC LIMIT 100 RETURN UNSET(attempt,"_key","_id","_rev")`);res.json(await cursor.all());
 }catch(error){next(error)}});
-app.get('/api/config',(q,r)=>r.json({insuranceTypes:TYPES,vehicleTypes:VEHICLE_TYPES,bodyTypes:BODY_TYPES,policyStatuses:POLICY_STATUSES,paymentMethods:PAYMENT_METHODS,paymentStatuses:PAYMENT_STATUSES,currencies:CURRENCIES,tenant:{id:q.user.tenantId,name:q.user.tenantName}}));app.get('/api/clients',async(q,r,n)=>{try{r.json(await all('clients',memoryClients,q.user.tenantId))}catch(e){n(e)}});app.get('/api/insurers',async(q,r,n)=>{try{r.json(await all('insurers',memoryInsurers,q.user.tenantId))}catch(e){n(e)}});
+app.get('/api/config',(q,r)=>r.json({insuranceTypes:TYPES,vehicleTypes:VEHICLE_TYPES,bodyTypes:BODY_TYPES,policyStatuses:POLICY_STATUSES,paymentMethods:PAYMENT_METHODS,paymentStatuses:PAYMENT_STATUSES,currencies:CURRENCIES,claimStatuses:CLAIM_STATUSES,tenant:{id:q.user.tenantId,name:q.user.tenantName}}));app.get('/api/clients',async(q,r,n)=>{try{r.json(await all('clients',memoryClients,q.user.tenantId))}catch(e){n(e)}});app.get('/api/insurers',async(q,r,n)=>{try{r.json(await all('insurers',memoryInsurers,q.user.tenantId))}catch(e){n(e)}});app.get('/api/claims',async(q,r,n)=>{try{const claims=await all('claims',memoryClaims,q.user.tenantId);r.json(claims.sort((a,b)=>b.reportedAt.localeCompare(a.reportedAt)))}catch(e){n(e)}});
 app.get('/api/exports/insurance-market-share.xlsx',async(q,r,n)=>{try{
   const clients=await all('clients',memoryClients,q.user.tenantId),insurers=await all('insurers',memoryInsurers,q.user.tenantId),workbook=await buildMarketShareWorkbook(clients,insurers,q.user.tenantName);
   const buffer=await workbook.xlsx.writeBuffer(),date=new Date().toISOString().slice(0,10);
@@ -359,6 +366,16 @@ app.patch('/api/clients/:id/policy',authorize('admin','agent'),async(q,r,n)=>{tr
   if(!Object.keys(changes).length)return r.status(400).json({message:'Pošaljite status polise ili status plaćanja.'});
   const client=await updatePolicyState(clientId,q.user.tenantId,q.user,changes);if(!client)return r.status(404).json({message:'Korisnik nije pronađen.'});await syncInsuranceGraph();r.json(client);
 }catch(e){n(e)}});
+app.post('/api/claims',authorize('admin','agent'),async(q,r,n)=>{try{
+  const clientId=String(q.body.clientId||''),incidentDate=String(q.body.incidentDate||''),description=String(q.body.description||'').trim(),estimatedAmount=Number(q.body.estimatedAmount),currency=String(q.body.currency||'');
+  const client=(await all('clients',memoryClients,q.user.tenantId)).find(item=>item.id===clientId);if(!client)return r.status(400).json({message:'Izaberite postojeću polisu vaše firme.'});
+  if(!validIsoDate(incidentDate)||incidentDate>new Date().toISOString().slice(0,10))return r.status(400).json({message:'Datum štete nije ispravan ili je u budućnosti.'});
+  if(incidentDate<client.validFrom||incidentDate>client.validUntil)return r.status(400).json({message:'Datum štete mora biti unutar perioda važenja polise.'});
+  if(description.length<10||description.length>1000)return r.status(400).json({message:'Opis štete mora imati od 10 do 1000 znakova.'});
+  if(!Number.isFinite(estimatedAmount)||estimatedAmount<=0||estimatedAmount>100000000)return r.status(400).json({message:'Procenjeni iznos mora biti pozitivan broj do 100.000.000.'});if(!CURRENCIES.includes(currency))return r.status(400).json({message:'Izaberite podržanu valutu.'});
+  const performedBy={id:q.user.id,username:q.user.username,displayName:q.user.displayName},reportedAt=new Date().toISOString(),claim={claimNumber:newClaimNumber(q.user.tenantId),clientId:client.id,policyNumber:client.policyNumber,clientName:`${client.name} ${client.surname}`,insuranceType:client.insuranceType,insurer:client.insurer,incidentDate,description,estimatedAmount,currency,status:'Prijavljena',reportedAt,createdBy:performedBy,history:[{action:'created',timestamp:reportedAt,performedBy,status:'Prijavljena'}]};r.status(201).json(await saveClaim(claim,q.user.tenantId));
+}catch(e){n(e)}});
+app.patch('/api/claims/:id/status',authorize('admin','agent'),async(q,r,n)=>{try{const claimId=String(q.params.id||''),status=String(q.body.status||'');if(!claimId||claimId.length>120)return r.status(400).json({message:'Identifikator štete nije ispravan.'});if(!CLAIM_STATUSES.includes(status))return r.status(400).json({message:'Izaberite važeći status štete.'});const claim=await updateClaimStatus(claimId,q.user.tenantId,q.user,status);if(!claim)return r.status(404).json({message:'Šteta nije pronađena.'});r.json(claim)}catch(e){n(e)}});
 app.get('/api/search',async(q,r,n)=>{try{
   const term=String(q.query.q||'').trim();
   if(!term)return r.json(await all('clients',memoryClients,q.user.tenantId));
