@@ -1,5 +1,7 @@
 # Kotva — NoSQL Insurance Management System
 
+[![CI](https://github.com/ToroRossoLGD/kotva-nosql-insurance/actions/workflows/ci.yml/badge.svg)](https://github.com/ToroRossoLGD/kotva-nosql-insurance/actions/workflows/ci.yml)
+
 Kotva is a full-stack insurance management application built as a portfolio and
 educational project. It demonstrates how ArangoDB can be used as a multi-model
 NoSQL database for documents, relationships, search, indexing, and business
@@ -41,6 +43,17 @@ that update automatically when new records are added.
 - **Frontend:** HTML, CSS, and JavaScript
 - **Charts:** Chart.js
 - **Infrastructure:** Docker and Docker Compose
+
+## Continuous Integration
+
+GitHub Actions runs the CI pipeline for every pull request targeting `main`,
+for every push to `main`, and when started manually. The pipeline installs the
+exact dependency versions from `package-lock.json`, checks JavaScript syntax,
+runs the automated Node.js test suite, and validates the Docker Compose file.
+
+The project intentionally does not use Ruff, ESLint, Prettier enforcement, or a
+maximum-line-length rule. CI evaluates correctness and deployability without
+rejecting the existing compact source-code style.
 
 ## Architecture
 
