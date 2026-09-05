@@ -15,6 +15,10 @@ const DEMO_USERS=[
 ];
 const TYPES=['Putno','Životno','Auto','Privatna svojina','DZO'],MONTHS=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Avg','Sep','Okt','Nov','Dec'];
 const EXPORT_TYPES=['Putno','Auto','Privatna svojina','DZO'];
+const POLICY_STATUSES=['Nacrt','Aktivna','Istekla','Otkazana'];
+const PAYMENT_METHODS=['Gotovina','Kartica','Bankovni transfer','Rate'];
+const PAYMENT_STATUSES=['Neplaćeno','Delimično plaćeno','Plaćeno'];
+const CURRENCIES=['RSD','EUR'];
 const VEHICLE_TYPES=['Putničko','Teretno','Motor'],BODY_TYPES=['Limuzina','SUV','Karavan'];
 const INSURERS=['Uniqa','Generali','Milenijum','Sava'].map((name,i)=>({id:`kuca-${i+1}`,tenantId:DEFAULT_TENANT_ID,name}));
 const CLIENTS=[['Ana','Marković',29,'Putno','Uniqa','2026-01-15'],['Nemanja','Petrović',41,'Životno','Generali','2026-01-18'],['Milica','Jovanović',34,'Auto','Milenijum','2026-02-09'],['Stefan','Đurić',52,'Privatna svojina','Sava','2026-02-12'],['Jovana','Nikolić',27,'Putno','Uniqa','2026-03-15'],['Viktor','Bojić',46,'Životno','Generali','2026-03-21'],['Sara','Pavlović',31,'Putno','Sava','2026-04-04'],['Luka','Mihajlović',39,'Auto','Milenijum','2026-04-20'],['Marija','Stojanović',48,'Privatna svojina','Sava','2026-05-09'],['Petar','Milošević',36,'Putno','Generali','2026-05-24'],['Ivana','Kostić',44,'Auto','Uniqa','2026-06-11'],['Marko','Lukić',51,'Životno','Sava','2026-06-19'],['Teodora','Ilić',28,'Putno','Milenijum','2026-07-13'],['Nikola','Perić',42,'Privatna svojina','Generali','2026-08-02'],['Katarina','Savić',33,'Auto','Uniqa','2026-09-17']].map(([name,surname,age,insuranceType,insurer,saleDate],i)=>({id:`korisnik-${i+1}`,tenantId:DEFAULT_TENANT_ID,name,surname,age,insuranceType,insurer,saleDate}));
@@ -56,12 +60,17 @@ CLIENTS.push(
   {id:'adria-client-1',tenantId:'tenant-adria',name:'Mina',surname:'Kovač',age:32,insuranceType:'Putno',insurer:'Adria Secure',saleDate:'2026-07-12'},
   {id:'adria-client-2',tenantId:'tenant-adria',name:'Ivan',surname:'Marić',age:45,insuranceType:'Auto',insurer:'Blue Shield',saleDate:'2026-08-08'}
 );
-let memoryInsurers=[...INSURERS],memoryClients=[...CLIENTS],memoryUsers=[],memoryLoginAttempts=[],db,mode='memory';const clean=({_key,_id,_rev,...x})=>x,id=p=>`${p}-${Date.now()}-${Math.random().toString(16).slice(2,8)}`;
+let memoryInsurers=[...INSURERS],memoryClients=[...CLIENTS],memoryUsers=[],memoryLoginAttempts=[],db,mode='memory';const clean=({_key,_id,_rev,...x})=>x,id=p=>`${p}-${Date.now()}-${Math.random().toString(16).slice(2,8)}`,validIsoDate=value=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;const date=new Date(`${value}T00:00:00Z`);return!Number.isNaN(date.valueOf())&&date.toISOString().slice(0,10)===value},newPolicyNumber=tenantId=>`POL-${new Date().toISOString().slice(0,10).replaceAll('-','')}-${tenantId.replace('tenant-','').slice(0,6).toUpperCase()}-${Math.random().toString(36).slice(2,8).toUpperCase()}`;
 async function initializeAuthUsers(){
   memoryUsers=await Promise.all(DEMO_USERS.map(async({password,...user})=>({...user,passwordHash:await bcrypt.hash(password,12),active:true})));
 }
+function initializeMemoryPolicies(){
+  const timestamp=new Date().toISOString();
+  memoryClients.forEach(client=>{if(client.policyNumber)return;const basePremium=client.insuranceType==='Putno'?3500:client.insuranceType==='Životno'?12000:client.insuranceType==='Auto'?18000:9000;Object.assign(client,{policyNumber:`LEGACY-${client.id.toUpperCase()}`,validFrom:client.saleDate,validUntil:`${Number(client.saleDate.slice(0,4))+1}${client.saleDate.slice(4)}`,premium:basePremium+client.age*25,currency:'RSD',policyStatus:'Aktivna',paymentMethod:'Nije evidentirano',paymentStatus:'Plaćeno',insuredSubject:`${client.name} ${client.surname}`,documents:[],soldBy:{id:'system',username:'system',displayName:'Demo data migration'},policyHistory:[{action:'created',timestamp,performedBy:{id:'system',username:'system',displayName:'Demo data migration'}}]})});
+}
 async function init(){
   await initializeAuthUsers();
+  initializeMemoryPolicies();
   if(process.env.USE_ARANGO!=='true')return;
   try{
     const connection={url:process.env.ARANGO_URL||'http://127.0.0.1:8529',auth:{username:process.env.ARANGO_USER||'root',password:process.env.ARANGO_PASSWORD||'kotva123'}};
@@ -76,6 +85,9 @@ async function init(){
     });
     await clientCollection.ensureIndex({
       type:'persistent',name:'idx_tenant_jmbg',fields:['tenantId','jmbg'],unique:true,sparse:true
+    });
+    await clientCollection.ensureIndex({
+      type:'persistent',name:'idx_tenant_policy_number',fields:['tenantId','policyNumber'],unique:true,sparse:true
     });
     await insurerCollection.ensureIndex({type:'persistent',name:'idx_tenant_insurer_name',fields:['tenantId','name'],unique:true,sparse:false});
     await db.collection('login_attempts').ensureIndex({type:'persistent',name:'idx_tenant_login_time',fields:['tenantId','timestamp'],unique:false,sparse:true});
@@ -107,6 +119,18 @@ async function init(){
     const missingClients=CLIENTS.filter(item=>!clientKeys.has(item.id)).map(item=>({...item,_key:item.id}));
     if(missingInsurers.length)await insurerCollection.saveAll(missingInsurers);
     if(missingClients.length)await clientCollection.saveAll(missingClients);
+    const migrationTimestamp=new Date().toISOString();
+    await db.query(aql`
+      FOR client IN clients
+        FILTER !HAS(client,"policyNumber")
+        LET basePremium=client.insuranceType=="Putno"?3500:client.insuranceType=="Životno"?12000:client.insuranceType=="Auto"?18000:9000
+        UPDATE client WITH {
+          policyNumber:CONCAT("LEGACY-",UPPER(client.id)),validFrom:client.saleDate,validUntil:SUBSTRING(DATE_ADD(client.saleDate,1,"year"),0,10),
+          premium:basePremium+client.age*25,currency:"RSD",policyStatus:"Aktivna",paymentMethod:"Nije evidentirano",paymentStatus:"Plaćeno",
+          insuredSubject:CONCAT(client.name," ",client.surname),documents:[],soldBy:{id:"system",username:"system",displayName:"Demo data migration"},
+          policyHistory:[{action:"created",timestamp:${migrationTimestamp},performedBy:{id:"system",username:"system",displayName:"Demo data migration"}}]
+        } IN clients
+    `);
     for(const tenant of TENANTS){
       const tenantDocument={...tenant,_key:tenant.id};
       await db.query(aql`UPSERT {_key:${tenant.id}} INSERT ${tenantDocument} UPDATE ${tenant} IN tenants`);
@@ -125,9 +149,8 @@ async function syncInsuranceGraph(){
   await db.query(aql`
     FOR client IN clients
       LET policyKey=CONCAT("polisa-",client.id)
-      LET basePremium=client.insuranceType=="Putno"?3500:client.insuranceType=="Životno"?12000:client.insuranceType=="Auto"?18000:9000
       LET vehicleDetails=client.insuranceType=="Auto"?{make:client.vehicleMake,engineCapacity:client.engineCapacity,vehicleType:client.vehicleType,bodyType:client.bodyType}:null
-      LET policy={_key:policyKey,tenantId:client.tenantId,clientId:client.id,insuranceType:client.insuranceType,saleDate:client.saleDate,validFrom:client.saleDate,validUntil:DATE_ADD(client.saleDate,1,"year"),premium:basePremium+client.age*25,status:"Aktivna",vehicleDetails,brokerApproval:client.brokerApproval}
+      LET policy={_key:policyKey,tenantId:client.tenantId,clientId:client.id,policyNumber:client.policyNumber,insuranceType:client.insuranceType,saleDate:client.saleDate,validFrom:client.validFrom,validUntil:client.validUntil,premium:client.premium,currency:client.currency,status:client.policyStatus,paymentMethod:client.paymentMethod,paymentStatus:client.paymentStatus,insuredSubject:client.insuredSubject,documents:client.documents,soldBy:client.soldBy,history:client.policyHistory,vehicleDetails,brokerApproval:client.brokerApproval}
       UPSERT {_key:policyKey} INSERT policy UPDATE policy IN policies
   `);
   await db.query(aql`
@@ -207,13 +230,25 @@ async function buildMarketShareWorkbook(clients,insurers,tenantName){
 async function confirmBrokerApproval(clientId,tenantId,user){
   if(mode!=='arango'){
     const client=memoryClients.find(item=>item.id===clientId&&item.tenantId===tenantId);
-    if(!client)return null;if(client.insuranceType!=='Auto')return false;
-    client.brokerApproval={status:'confirmed',confirmedAt:new Date().toISOString(),confirmedBy:{id:user.id,username:user.username,displayName:user.displayName}};return client;
+    if(!client)return null;if(client.insuranceType!=='Auto')return false;if(client.brokerApproval?.status==='confirmed')return client;
+    const performedBy={id:user.id,username:user.username,displayName:user.displayName},timestamp=new Date().toISOString();client.brokerApproval={status:'confirmed',confirmedAt:timestamp,confirmedBy:performedBy};client.policyHistory.push({action:'broker_confirmed',timestamp,performedBy});return client;
   }
   const cursor=await db.query(aql`FOR client IN clients FILTER client.id==${clientId} AND client.tenantId==${tenantId} LIMIT 1 RETURN client`);
-  const client=await cursor.next();if(!client)return null;if(client.insuranceType!=='Auto')return false;
-  const brokerApproval={status:'confirmed',confirmedAt:new Date().toISOString(),confirmedBy:{id:user.id,username:user.username,displayName:user.displayName}};
-  const updateCursor=await db.query(aql`UPDATE ${client._key} WITH {brokerApproval:${brokerApproval}} IN clients RETURN NEW`);
+  const client=await cursor.next();if(!client)return null;if(client.insuranceType!=='Auto')return false;if(client.brokerApproval?.status==='confirmed')return clean(client);
+  const performedBy={id:user.id,username:user.username,displayName:user.displayName},timestamp=new Date().toISOString(),brokerApproval={status:'confirmed',confirmedAt:timestamp,confirmedBy:performedBy},policyHistory=[...(client.policyHistory||[]),{action:'broker_confirmed',timestamp,performedBy}];
+  const updateCursor=await db.query(aql`UPDATE ${client._key} WITH {brokerApproval:${brokerApproval},policyHistory:${policyHistory}} IN clients RETURN NEW`);
+  return clean(await updateCursor.next());
+}
+async function updatePolicyState(clientId,tenantId,user,changes){
+  const performedBy={id:user.id,username:user.username,displayName:user.displayName},timestamp=new Date().toISOString();
+  if(mode!=='arango'){
+    const client=memoryClients.find(item=>item.id===clientId&&item.tenantId===tenantId);if(!client)return null;
+    const previous={policyStatus:client.policyStatus,paymentStatus:client.paymentStatus};Object.assign(client,changes);
+    client.policyHistory.push({action:'policy_updated',timestamp,performedBy,previous,changes});return client;
+  }
+  const cursor=await db.query(aql`FOR client IN clients FILTER client.id==${clientId} AND client.tenantId==${tenantId} LIMIT 1 RETURN client`),client=await cursor.next();if(!client)return null;
+  const previous={policyStatus:client.policyStatus,paymentStatus:client.paymentStatus},historyEntry={action:'policy_updated',timestamp,performedBy,previous,changes},policyHistory=[...(client.policyHistory||[]),historyEntry],update={...changes,policyHistory};
+  const updateCursor=await db.query(aql`UPDATE ${client._key} WITH ${update} IN clients RETURN NEW`);
   return clean(await updateCursor.next());
 }
 function cookieValue(req,name){
@@ -265,7 +300,7 @@ app.get('/api/auth/login-attempts',authorize('admin'),async(req,res,next)=>{try{
   if(mode!=='arango')return res.json(memoryLoginAttempts.filter(item=>item.tenantId===req.user.tenantId).reverse().slice(0,100));
   const cursor=await db.query(aql`FOR attempt IN login_attempts FILTER attempt.tenantId==${req.user.tenantId} SORT attempt.timestamp DESC LIMIT 100 RETURN UNSET(attempt,"_key","_id","_rev")`);res.json(await cursor.all());
 }catch(error){next(error)}});
-app.get('/api/config',(q,r)=>r.json({insuranceTypes:TYPES,vehicleTypes:VEHICLE_TYPES,bodyTypes:BODY_TYPES,tenant:{id:q.user.tenantId,name:q.user.tenantName}}));app.get('/api/clients',async(q,r,n)=>{try{r.json(await all('clients',memoryClients,q.user.tenantId))}catch(e){n(e)}});app.get('/api/insurers',async(q,r,n)=>{try{r.json(await all('insurers',memoryInsurers,q.user.tenantId))}catch(e){n(e)}});
+app.get('/api/config',(q,r)=>r.json({insuranceTypes:TYPES,vehicleTypes:VEHICLE_TYPES,bodyTypes:BODY_TYPES,policyStatuses:POLICY_STATUSES,paymentMethods:PAYMENT_METHODS,paymentStatuses:PAYMENT_STATUSES,currencies:CURRENCIES,tenant:{id:q.user.tenantId,name:q.user.tenantName}}));app.get('/api/clients',async(q,r,n)=>{try{r.json(await all('clients',memoryClients,q.user.tenantId))}catch(e){n(e)}});app.get('/api/insurers',async(q,r,n)=>{try{r.json(await all('insurers',memoryInsurers,q.user.tenantId))}catch(e){n(e)}});
 app.get('/api/exports/insurance-market-share.xlsx',async(q,r,n)=>{try{
   const clients=await all('clients',memoryClients,q.user.tenantId),insurers=await all('insurers',memoryInsurers,q.user.tenantId),workbook=await buildMarketShareWorkbook(clients,insurers,q.user.tenantName);
   const buffer=await workbook.xlsx.writeBuffer(),date=new Date().toISOString().slice(0,10);
@@ -277,7 +312,20 @@ app.post('/api/clients',authorize('admin','agent'),async(q,r,n)=>{try{
   if(!x.name||!x.surname)return r.status(400).json({message:'Ime i prezime su obavezni.'});
   if(!Number.isInteger(x.age)||x.age<0||x.age>120)return r.status(400).json({message:'Godine moraju biti ceo broj od 0 do 120.'});
   if(!TYPES.includes(x.insuranceType))return r.status(400).json({message:'Izaberite važeći tip osiguranja.'});
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(x.saleDate))return r.status(400).json({message:'Datum prodaje nije ispravan.'});
+  if(!validIsoDate(x.saleDate))return r.status(400).json({message:'Datum prodaje nije ispravan.'});
+  x.validFrom=String(q.body.validFrom||'');x.validUntil=String(q.body.validUntil||'');x.premium=Number(q.body.premium);x.currency=String(q.body.currency||'');x.policyStatus=String(q.body.policyStatus||'');x.paymentMethod=String(q.body.paymentMethod||'');x.paymentStatus=String(q.body.paymentStatus||'');x.insuredSubject=String(q.body.insuredSubject||'').trim();
+  if(!validIsoDate(x.validFrom)||!validIsoDate(x.validUntil))return r.status(400).json({message:'Datumi početka i isteka polise nisu ispravni.'});
+  if(x.validFrom<x.saleDate)return r.status(400).json({message:'Početak važenja ne može biti pre datuma prodaje.'});
+  if(x.validUntil<=x.validFrom)return r.status(400).json({message:'Datum isteka mora biti posle početka važenja.'});
+  if(!Number.isFinite(x.premium)||x.premium<=0||x.premium>100000000)return r.status(400).json({message:'Premija mora biti pozitivan iznos do 100.000.000.'});
+  if(!CURRENCIES.includes(x.currency))return r.status(400).json({message:'Izaberite podržanu valutu.'});
+  if(!POLICY_STATUSES.includes(x.policyStatus))return r.status(400).json({message:'Izaberite važeći status polise.'});
+  if(!PAYMENT_METHODS.includes(x.paymentMethod))return r.status(400).json({message:'Izaberite način plaćanja.'});
+  if(!PAYMENT_STATUSES.includes(x.paymentStatus))return r.status(400).json({message:'Izaberite status plaćanja.'});
+  if(x.insuredSubject.length<2||x.insuredSubject.length>200)return r.status(400).json({message:'Predmet osiguranja mora imati od 2 do 200 znakova.'});
+  const performedBy={id:q.user.id,username:q.user.username,displayName:q.user.displayName},timestamp=new Date().toISOString(),documentReference=String(q.body.documentReference||'').trim();
+  if(documentReference.length>300)return r.status(400).json({message:'Referenca dokumenta može imati najviše 300 znakova.'});
+  x.policyNumber=newPolicyNumber(q.user.tenantId);x.soldBy=performedBy;x.documents=documentReference?[{id:id('document'),name:'Prateći dokument',reference:documentReference,addedAt:timestamp,addedBy:performedBy}]:[];x.policyHistory=[{action:'created',timestamp,performedBy,status:x.policyStatus,paymentStatus:x.paymentStatus}];
   if(x.insuranceType==='Putno'){
     x.jmbg=String(q.body.jmbg||'').trim();x.passportNumber=String(q.body.passportNumber||'').trim().toUpperCase();x.destination=String(q.body.destination||'').trim();
     if(!/^\d{13}$/.test(x.jmbg))return r.status(400).json({message:'JMBG mora sadržati tačno 13 cifara.'});
@@ -303,6 +351,13 @@ app.post('/api/clients/:id/broker-approval',authorize('admin','agent'),async(q,r
   if(client===null)return r.status(404).json({message:'Korisnik nije pronađen.'});
   if(client===false)return r.status(400).json({message:'Broker potvrda je dostupna samo za auto-osiguranje.'});
   await syncInsuranceGraph();r.json(client);
+}catch(e){n(e)}});
+app.patch('/api/clients/:id/policy',authorize('admin','agent'),async(q,r,n)=>{try{
+  const clientId=String(q.params.id||''),changes={};if(!clientId||clientId.length>120)return r.status(400).json({message:'Identifikator korisnika nije ispravan.'});
+  if(q.body.policyStatus!==undefined){if(!POLICY_STATUSES.includes(q.body.policyStatus))return r.status(400).json({message:'Izaberite važeći status polise.'});changes.policyStatus=q.body.policyStatus}
+  if(q.body.paymentStatus!==undefined){if(!PAYMENT_STATUSES.includes(q.body.paymentStatus))return r.status(400).json({message:'Izaberite status plaćanja.'});changes.paymentStatus=q.body.paymentStatus}
+  if(!Object.keys(changes).length)return r.status(400).json({message:'Pošaljite status polise ili status plaćanja.'});
+  const client=await updatePolicyState(clientId,q.user.tenantId,q.user,changes);if(!client)return r.status(404).json({message:'Korisnik nije pronađen.'});await syncInsuranceGraph();r.json(client);
 }catch(e){n(e)}});
 app.get('/api/search',async(q,r,n)=>{try{
   const term=String(q.query.q||'').trim();
