@@ -17,6 +17,7 @@ that update automatically when new records are added.
 - Require JMBG, passport number, and destination for every new travel-insurance client
 - Capture vehicle make, engine capacity, vehicle category, and passenger-car body type for auto insurance
 - Track extensible broker approval metadata for vehicle insurance
+- Register and process policy-linked claims with role-based status changes and audit history
 - Export a tenant-specific Excel market-share report for travel, auto, property, and DZO insurance
 - Display recently added clients in a responsive table
 - Search names regardless of letter case and diacritics
@@ -67,16 +68,20 @@ Document collections:
 - `users`
 - `login_attempts`
 - `tenants`
+- `claims`
 
 Edge collections:
 
 - `owns`
 - `issued_by`
+- `has_claim`
 
 Graph structure:
 
 ```text
 clients --owns--> policies --issued_by--> insurers
+                         \
+                          --has_claim--> claims
 ```
 
 This model can support multiple policies per client while keeping the issuing
@@ -202,6 +207,9 @@ secrets and must not expose the database directly.
 | POST | `/api/clients` | Create a client and synchronize graph data |
 | PATCH | `/api/clients/:id/policy` | Change policy/payment status and append an audit-history entry |
 | POST | `/api/clients/:id/broker-approval` | Confirm auto-insurance vehicle details as an agent or administrator |
+| GET | `/api/claims` | List the current tenant's claims |
+| POST | `/api/claims` | Register a claim against an existing in-force policy |
+| PATCH | `/api/claims/:id/status` | Update claim status and append an audit-history entry |
 | GET | `/api/insurers` | List insurance companies |
 | POST | `/api/insurers` | Create an insurance company |
 | GET | `/api/search?q=query` | Search clients by name |
@@ -236,12 +244,27 @@ safe legacy values. Attached-document metadata is stored in ArangoDB; production
 binary files can later be placed in object storage while retaining their secure
 reference in the policy document.
 
+## Claims Management
+
+Agents and administrators can register a claim against an existing policy. The
+API verifies tenant ownership, rejects future incident dates, and requires the
+incident to fall inside the policy's validity period. Each claim receives a
+generated claim number and stores the policy, customer, insurer, incident,
+estimated loss, currency, reporter, and current processing status.
+
+The workflow supports `Prijavljena`, `U obradi`, `Odobrena`, `Odbijena`, and
+`Isplaćena` states. Every state change is appended to the claim history with the
+previous state, authenticated operator, and timestamp. In ArangoDB, claims are
+connected to policy vertices through the `has_claim` edge collection, enabling
+policy-to-claim graph traversals. Analysts retain read-only access.
+
 ## NoSQL Concepts Demonstrated
 
 - Flexible JSON document model
 - Shared-database multi-tenancy with tenant-scoped queries and compound indexes
 - Conditional data validation and a tenant-scoped unique JMBG index
 - Role-protected broker approval workflow with status, timestamp, and approving-user metadata
+- Tenant-safe claims workflow with policy-period validation and append-only status history
 - Denormalization
 - Persistent and inverted indexes
 - Text normalization with an ArangoDB analyzer

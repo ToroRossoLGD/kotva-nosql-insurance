@@ -164,3 +164,20 @@ test('advanced policy data is validated and status changes are audited',async()=
   const adria=await login('adria-admin','Adria123!'),crossTenant=await request(`/api/clients/${created.body.id}/policy`,{method:'PATCH',headers:{cookie:adria.cookie,'content-type':'application/json'},body:JSON.stringify({policyStatus:'Otkazana'})});
   assert.equal(crossTenant.response.status,404);
 });
+
+test('claims are policy-linked, tenant-isolated, and keep status history',async()=>{
+  const agent=await login('agent','Agent123!');
+  const policy=await request('/api/clients',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify(withPolicy({name:'Claim',surname:'Owner',age:40,insuranceType:'Privatna svojina',insurer:'Sava',saleDate:'2026-09-01'},{insuredSubject:'Porodična kuća'}))});
+  assert.equal(policy.response.status,201);
+  const outsidePeriod=await request('/api/claims',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify({clientId:policy.body.id,incidentDate:'2026-08-31',estimatedAmount:50000,currency:'RSD',description:'Oštećenje nastalo pre početka polise.'})});
+  assert.equal(outsidePeriod.response.status,400);assert.match(outsidePeriod.body.message,/perioda važenja/);
+  const created=await request('/api/claims',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify({clientId:policy.body.id,incidentDate:'2026-09-05',estimatedAmount:185000,currency:'RSD',description:'Oštećenje krova usled jakog nevremena.'})});
+  assert.equal(created.response.status,201);assert.match(created.body.claimNumber,/^CLM-\d{8}-KOTVA-[A-Z0-9]{6}$/);assert.equal(created.body.policyNumber,policy.body.policyNumber);assert.equal(created.body.status,'Prijavljena');assert.equal(created.body.history[0].action,'created');
+  const analyst=await login('analyst','Analyst123!'),denied=await request(`/api/claims/${created.body.id}/status`,{method:'PATCH',headers:{cookie:analyst.cookie,'content-type':'application/json'},body:JSON.stringify({status:'U obradi'})});
+  assert.equal(denied.response.status,403);
+  const updated=await request(`/api/claims/${created.body.id}/status`,{method:'PATCH',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify({status:'Odobrena'})});
+  assert.equal(updated.response.status,200);assert.equal(updated.body.status,'Odobrena');assert.equal(updated.body.history.at(-1).previousStatus,'Prijavljena');assert.equal(updated.body.history.at(-1).performedBy.username,'agent');
+  const adria=await login('adria-admin','Adria123!'),crossTenant=await request(`/api/claims/${created.body.id}/status`,{method:'PATCH',headers:{cookie:adria.cookie,'content-type':'application/json'},body:JSON.stringify({status:'Odbijena'})});
+  assert.equal(crossTenant.response.status,404);
+  const listed=await request('/api/claims',{headers:{cookie:agent.cookie}});assert.ok(listed.body.some(claim=>claim.id===created.body.id));
+});

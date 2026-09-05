@@ -1,0 +1,9 @@
+textarea{font:inherit;width:100%;border:1px solid #dfe4e7;border-radius:9px;padding:11px 12px;background:#fbfcfc;outline:none;resize:vertical}
+textarea:focus{border-color:var(--orange);box-shadow:0 0 0 3px #ff6b3519}
+#claims{margin-top:54px}
+.wide-field{grid-column:span 2}
+.claims-table{margin-top:16px}
+.claim-status{min-width:130px;padding:7px 9px}
+.claim-action{padding:8px 11px}
+.status-pill{display:inline-block;padding:5px 8px;border-radius:99px;background:#eaf0f4;color:var(--navy);font-size:11px;font-weight:700}
+@media(max-width:800px){.wide-field{grid-column:span 1}}
