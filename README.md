@@ -200,6 +200,7 @@ secrets and must not expose the database directly.
 | GET | `/api/config` | Return the supported insurance types |
 | GET | `/api/clients` | List clients |
 | POST | `/api/clients` | Create a client and synchronize graph data |
+| PATCH | `/api/clients/:id/policy` | Change policy/payment status and append an audit-history entry |
 | POST | `/api/clients/:id/broker-approval` | Confirm auto-insurance vehicle details as an agent or administrator |
 | GET | `/api/insurers` | List insurance companies |
 | POST | `/api/insurers` | Create an insurance company |
@@ -219,6 +220,21 @@ sales count is zero.
 The workbook includes a formatted percentage report with formula-backed totals
 and a separate source-count sheet for auditing the calculations. Exported data
 is automatically restricted to the signed-in user's tenant.
+
+## Advanced Policy Model
+
+Every newly created client is linked to a complete policy record containing a
+generated tenant-scoped policy number, validity period, premium and currency,
+policy status, payment method and status, insured subject, selling-agent
+metadata, document references, and an append-only change history. Policy and
+payment status changes record the authenticated operator, timestamp, previous
+values, and new values. Auto-policy broker confirmation is recorded in the same
+history.
+
+Existing demo and database records are upgraded automatically at startup with
+safe legacy values. Attached-document metadata is stored in ArangoDB; production
+binary files can later be placed in object storage while retaining their secure
+reference in the policy document.
 
 ## NoSQL Concepts Demonstrated
 
