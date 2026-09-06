@@ -1,0 +1,11 @@
+#notifications{margin-top:28px}
+.notification-list{display:grid;gap:10px}
+.notification{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px;padding:15px 17px;background:#fff;border:1px solid var(--line);border-left:4px solid #f2b84b;border-radius:12px;box-shadow:0 8px 22px #102d460b}
+.notification.high{border-left-color:var(--orange)}
+.notification.critical{border-left-color:#d94841}
+.notification-icon{width:34px;height:34px;display:grid;place-items:center;border-radius:9px;background:#fff3d9;color:#9b6810;font-weight:800}
+.notification.high .notification-icon,.notification.critical .notification-icon{background:#fff0ea;color:#c94b1d}
+.notification strong,.notification small{display:block}
+.notification small{margin-top:3px;color:var(--muted)}
+.notification-dismiss{border:1px solid var(--line);background:#f8f9f8;color:var(--muted);border-radius:8px;padding:8px 10px;cursor:pointer}
+.notification-empty{padding:20px;text-align:center;color:var(--muted)}
