@@ -218,3 +218,11 @@ test('policy documents enforce file rules and tenant-protected downloads',async(
   const analyst=await login('analyst','Analyst123!'),deniedForm=new FormData();deniedForm.append('document',new Blob(['%PDF'],{type:'application/pdf'}),'denied.pdf');const denied=await request(`/api/clients/${policy.body.id}/documents`,{method:'POST',headers:{cookie:analyst.cookie},body:deniedForm});assert.equal(denied.response.status,403);
   const adria=await login('adria-admin','Adria123!'),crossTenant=await fetch(`${baseUrl}/api/documents/${uploaded.body.id}/download`,{headers:{cookie:adria.cookie}});assert.equal(crossTenant.status,404);
 });
+
+test('business audit is append-only, filterable, admin-only, and tenant-isolated',async()=>{
+  const admin=await login('admin','Admin123!'),audit=await request('/api/audit?limit=200',{headers:{cookie:admin.cookie}});assert.equal(audit.response.status,200);assert.ok(audit.body.length>0);for(const action of['policy.created','claim.created','claim.status_updated','payment.recorded','document.uploaded'])assert.ok(audit.body.some(event=>event.action===action),`Missing audit action ${action}`);assert.ok(audit.body.every(event=>event.tenantId==='tenant-kotva'&&event.actor?.username));
+  const paymentAudit=await request('/api/audit?entityType=payment&limit=10',{headers:{cookie:admin.cookie}});assert.equal(paymentAudit.response.status,200);assert.ok(paymentAudit.body.length>0);assert.ok(paymentAudit.body.every(event=>event.entityType==='payment'));
+  const serialized=JSON.stringify(audit.body);assert.ok(!serialized.includes('0303990712345'));assert.ok(!serialized.includes('PA-123456'));
+  const agent=await login('agent','Agent123!'),denied=await request('/api/audit',{headers:{cookie:agent.cookie}});assert.equal(denied.response.status,403);
+  const adria=await login('adria-admin','Adria123!'),adriaAudit=await request('/api/audit',{headers:{cookie:adria.cookie}});assert.equal(adriaAudit.response.status,200);assert.ok(adriaAudit.body.every(event=>event.tenantId==='tenant-adria'));assert.ok(!adriaAudit.body.some(event=>audit.body.some(kotvaEvent=>kotvaEvent.id===event.id)));
+});
