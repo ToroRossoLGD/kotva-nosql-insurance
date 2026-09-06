@@ -20,6 +20,7 @@ that update automatically when new records are added.
 - Capture vehicle make, engine capacity, vehicle category, and passenger-car body type for auto insurance
 - Track extensible broker approval metadata for vehicle insurance
 - Register and process policy-linked claims with role-based status changes and audit history
+- Record premium payments, prevent duplicate references and overpayments, and update policy balances automatically
 - Export a tenant-specific Excel market-share report for travel, auto, property, and DZO insurance
 - Display recently added clients in a responsive table
 - Search names regardless of letter case and diacritics
@@ -82,12 +83,14 @@ Document collections:
 - `login_attempts`
 - `tenants`
 - `claims`
+- `payments`
 
 Edge collections:
 
 - `owns`
 - `issued_by`
 - `has_claim`
+- `has_payment`
 
 Graph structure:
 
@@ -95,6 +98,8 @@ Graph structure:
 clients --owns--> policies --issued_by--> insurers
                          \
                           --has_claim--> claims
+                         \
+                          --has_payment--> payments
 ```
 
 This model can support multiple policies per client while keeping the issuing
@@ -223,6 +228,8 @@ secrets and must not expose the database directly.
 | GET | `/api/claims` | List the current tenant's claims |
 | POST | `/api/claims` | Register a claim against an existing in-force policy |
 | PATCH | `/api/claims/:id/status` | Update claim status and append an audit-history entry |
+| GET | `/api/payments` | List the current tenant's premium payments |
+| POST | `/api/payments` | Record a policy payment and update its balance/status |
 | GET | `/api/insurers` | List insurance companies |
 | POST | `/api/insurers` | Create an insurance company |
 | GET | `/api/search?q=query` | Search clients by name |
@@ -271,6 +278,20 @@ previous state, authenticated operator, and timestamp. In ArangoDB, claims are
 connected to policy vertices through the `has_claim` edge collection, enabling
 policy-to-claim graph traversals. Analysts retain read-only access.
 
+## Premium Payments
+
+Agents and administrators can record partial or full premium payments against a
+policy. Each payment receives a receipt number and stores its date, amount,
+policy currency, payment method, optional external reference, authenticated
+operator, and timestamp. References are unique inside a tenant to prevent the
+same bank or card transaction from being imported twice.
+
+The API calculates the already-paid amount, rejects overpayments, and updates
+the policy status to `Delimično plaćeno` or `Plaćeno`. Every accepted payment is
+also appended to the policy audit history. ArangoDB connects policy and payment
+documents through `has_payment`, while compound indexes support tenant-safe
+receipt, date, and reference lookups. Analysts have read-only access.
+
 ## NoSQL Concepts Demonstrated
 
 - Flexible JSON document model
@@ -278,6 +299,7 @@ policy-to-claim graph traversals. Analysts retain read-only access.
 - Conditional data validation and a tenant-scoped unique JMBG index
 - Role-protected broker approval workflow with status, timestamp, and approving-user metadata
 - Tenant-safe claims workflow with policy-period validation and append-only status history
+- Premium payment ledger with duplicate prevention, balance validation, and policy audit integration
 - Denormalization
 - Persistent and inverted indexes
 - Text normalization with an ArangoDB analyzer

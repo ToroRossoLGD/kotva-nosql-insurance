@@ -181,3 +181,16 @@ test('claims are policy-linked, tenant-isolated, and keep status history',async(
   assert.equal(crossTenant.response.status,404);
   const listed=await request('/api/claims',{headers:{cookie:agent.cookie}});assert.ok(listed.body.some(claim=>claim.id===created.body.id));
 });
+
+test('premium payments prevent duplicates and overpayment while updating policy status',async()=>{
+  const agent=await login('agent','Agent123!'),policy=await request('/api/clients',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify(withPolicy({name:'Payment',surname:'Owner',age:36,insuranceType:'DZO',insurer:'Uniqa',saleDate:'2026-09-01'},{premium:1000,paymentStatus:'Neplaćeno',insuredSubject:'Dodatno zdravstveno osiguranje'}))});
+  assert.equal(policy.response.status,201);
+  const firstPayload={clientId:policy.body.id,paymentDate:'2026-09-06',amount:400,method:'Kartica',reference:'PAYMENT-TEST-001'},first=await request('/api/payments',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify(firstPayload)});
+  assert.equal(first.response.status,201);assert.match(first.body.receiptNumber,/^PAY-\d{8}-KOTVA-[A-Z0-9]{6}$/);assert.equal(first.body.totalPaid,400);assert.equal(first.body.remaining,600);assert.equal(first.body.paymentStatus,'Delimično plaćeno');assert.equal(first.body.recordedBy.username,'agent');
+  const duplicate=await request('/api/payments',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify(firstPayload)});assert.equal(duplicate.response.status,409);
+  const overpayment=await request('/api/payments',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify({...firstPayload,amount:601,reference:'PAYMENT-TEST-002'})});assert.equal(overpayment.response.status,400);assert.match(overpayment.body.message,/preostali dug/);
+  const finalPayment=await request('/api/payments',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify({...firstPayload,amount:600,method:'Bankovni transfer',reference:'PAYMENT-TEST-003'})});assert.equal(finalPayment.response.status,201);assert.equal(finalPayment.body.remaining,0);assert.equal(finalPayment.body.paymentStatus,'Plaćeno');
+  const clients=await request('/api/clients',{headers:{cookie:agent.cookie}}),updatedPolicy=clients.body.find(client=>client.id===policy.body.id);assert.equal(updatedPolicy.paymentStatus,'Plaćeno');assert.equal(updatedPolicy.policyHistory.at(-1).action,'payment_recorded');
+  const analyst=await login('analyst','Analyst123!'),denied=await request('/api/payments',{method:'POST',headers:{cookie:analyst.cookie,'content-type':'application/json'},body:JSON.stringify(firstPayload)});assert.equal(denied.response.status,403);
+  const adria=await login('adria-admin','Adria123!'),adriaPayments=await request('/api/payments',{headers:{cookie:adria.cookie}});assert.ok(adriaPayments.body.every(payment=>payment.tenantId==='tenant-adria'));
+});
