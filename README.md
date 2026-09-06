@@ -59,6 +59,19 @@ The project intentionally does not use Ruff, ESLint, Prettier enforcement, or a
 maximum-line-length rule. CI evaluates correctness and deployability without
 rejecting the existing compact source-code style.
 
+The separate `Playwright E2E` job runs seven serial Chromium workflows against
+an isolated in-memory application server. It covers authentication, role-based
+UI permissions, standard/travel/vehicle policy creation, broker confirmation,
+claim processing, and partial-to-full premium payment. Failed runs retain an
+HTML report, screenshots, video, and a Playwright trace as a CI artifact.
+
+Run the browser suite locally with:
+
+```bash
+npx playwright install chromium
+npm run test:e2e
+```
+
 ## Architecture
 
 The application consists of three layers:

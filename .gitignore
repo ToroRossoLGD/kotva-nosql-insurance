@@ -5,6 +5,8 @@ node_modules/
 npm-debug.log*
 *.log
 uploads/
+playwright-report/
+test-results/
 .DS_Store
 Thumbs.db
 .vscode/
