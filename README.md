@@ -22,6 +22,7 @@ that update automatically when new records are added.
 - Register and process policy-linked claims with role-based status changes and audit history
 - Record premium payments, prevent duplicate references and overpayments, and update policy balances automatically
 - Surface user-specific reminders for expiring policies, premium debt, and aging claims
+- Upload and securely download tenant-protected PDF and image policy documents
 - Export a tenant-specific Excel market-share report for travel, auto, property, and DZO insurance
 - Display recently added clients in a responsive table
 - Search names regardless of letter case and diacritics
@@ -86,6 +87,7 @@ Document collections:
 - `claims`
 - `payments`
 - `notification_dismissals`
+- `policy_documents`
 
 Edge collections:
 
@@ -93,6 +95,7 @@ Edge collections:
 - `issued_by`
 - `has_claim`
 - `has_payment`
+- `has_document`
 
 Graph structure:
 
@@ -102,6 +105,8 @@ clients --owns--> policies --issued_by--> insurers
                           --has_claim--> claims
                          \
                           --has_payment--> payments
+                         \
+                          --has_document--> policy_documents
 ```
 
 This model can support multiple policies per client while keeping the issuing
@@ -234,6 +239,9 @@ secrets and must not expose the database directly.
 | POST | `/api/payments` | Record a policy payment and update its balance/status |
 | GET | `/api/notifications` | Generate the current user's operational notification feed |
 | POST | `/api/notifications/:key/dismiss` | Mark one generated notification as read for the current user |
+| GET | `/api/documents` | List document metadata for the current tenant |
+| POST | `/api/clients/:id/documents` | Upload one PDF, JPG, or PNG document to a policy |
+| GET | `/api/documents/:id/download` | Download a document through tenant-protected access |
 | GET | `/api/insurers` | List insurance companies |
 | POST | `/api/insurers` | Create an insurance company |
 | GET | `/api/search?q=query` | Search clients by name |
@@ -309,6 +317,23 @@ hiding it from colleagues: dismissals are stored per tenant, user, and stable
 notification key in `notification_dismissals`. A compound unique index prevents
 duplicate dismissals.
 
+## Policy Document Management
+
+Agents and administrators can upload PDF, JPEG, and PNG policy documents up to
+5 MB. Files receive cryptographically random storage names, while original file
+names, MIME types, sizes, policy/customer references, timestamps, and uploader
+identity are stored as ArangoDB metadata. The upload directory is not publicly
+served, and every download is authorized through the API and scoped to the
+signed-in user's tenant. Analysts can list and download documents but cannot
+upload them.
+
+Policy documents are connected to policies through the `has_document` graph
+edge. Docker Compose stores binaries in the persistent `document_uploads`
+volume, while `.gitignore` and `.dockerignore` prevent local uploads from being
+committed or copied into application images. Production deployments can later
+replace the local volume with S3-compatible object storage without changing the
+document metadata model.
+
 ## NoSQL Concepts Demonstrated
 
 - Flexible JSON document model
@@ -318,6 +343,7 @@ duplicate dismissals.
 - Tenant-safe claims workflow with policy-period validation and append-only status history
 - Premium payment ledger with duplicate prevention, balance validation, and policy audit integration
 - Derived operational notifications with severity ordering and per-user dismissal state
+- Protected policy-document storage with MIME/size validation and graph relationships
 - Denormalization
 - Persistent and inverted indexes
 - Text normalization with an ArangoDB analyzer

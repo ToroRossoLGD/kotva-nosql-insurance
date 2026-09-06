@@ -26,8 +26,11 @@ services:
       AGENT_PASSWORD: ${AGENT_PASSWORD:-Agent123!}
       ANALYST_PASSWORD: ${ANALYST_PASSWORD:-Analyst123!}
       ADRIA_ADMIN_PASSWORD: ${ADRIA_ADMIN_PASSWORD:-Adria123!}
+      UPLOAD_DIR: /app/uploads
     ports: ["127.0.0.1:${APP_PORT:-3001}:3000"]
+    volumes: ["document_uploads:/app/uploads"]
     depends_on:
       arangodb: {condition: service_healthy}
 volumes:
   arango_data:
+  document_uploads:
