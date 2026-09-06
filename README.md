@@ -23,6 +23,7 @@ that update automatically when new records are added.
 - Record premium payments, prevent duplicate references and overpayments, and update policy balances automatically
 - Surface user-specific reminders for expiring policies, premium debt, and aging claims
 - Upload and securely download tenant-protected PDF and image policy documents
+- Review an administrator-only, append-only audit trail of every business mutation
 - Export a tenant-specific Excel market-share report for travel, auto, property, and DZO insurance
 - Display recently added clients in a responsive table
 - Search names regardless of letter case and diacritics
@@ -88,6 +89,7 @@ Document collections:
 - `payments`
 - `notification_dismissals`
 - `policy_documents`
+- `business_audit`
 
 Edge collections:
 
@@ -242,6 +244,7 @@ secrets and must not expose the database directly.
 | GET | `/api/documents` | List document metadata for the current tenant |
 | POST | `/api/clients/:id/documents` | Upload one PDF, JPG, or PNG document to a policy |
 | GET | `/api/documents/:id/download` | Download a document through tenant-protected access |
+| GET | `/api/audit` | Return filterable tenant business events for administrators |
 | GET | `/api/insurers` | List insurance companies |
 | POST | `/api/insurers` | Create an insurance company |
 | GET | `/api/search?q=query` | Search clients by name |
@@ -334,6 +337,21 @@ committed or copied into application images. Production deployments can later
 replace the local volume with S3-compatible object storage without changing the
 document metadata model.
 
+## Business Audit Trail
+
+Every successful business mutation writes an append-only audit event. Covered
+actions include insurer and policy creation, policy and claim status changes,
+broker confirmation, premium payments, notification dismissals, and document
+uploads. Each event records a stable action name, entity type and identifier,
+safe summary and change metadata, timestamp, authenticated actor and role, IP
+address, and user agent.
+
+Only administrators can read `/api/audit`. Results are tenant-scoped, sorted
+newest first, limited to at most 200 records, and can be filtered by `action` or
+`entityType`. Passwords, session tokens, JMBG values, passport numbers, uploaded
+file contents, and raw request bodies are never copied into the audit trail.
+Compound ArangoDB indexes support chronological review and entity history.
+
 ## NoSQL Concepts Demonstrated
 
 - Flexible JSON document model
@@ -344,6 +362,7 @@ document metadata model.
 - Premium payment ledger with duplicate prevention, balance validation, and policy audit integration
 - Derived operational notifications with severity ordering and per-user dismissal state
 - Protected policy-document storage with MIME/size validation and graph relationships
+- Administrator-only business audit with safe metadata, filtering, and compound indexes
 - Denormalization
 - Persistent and inverted indexes
 - Text normalization with an ArangoDB analyzer
