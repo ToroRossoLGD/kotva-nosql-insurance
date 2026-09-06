@@ -1,9 +1,13 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const os=require('node:os');
+const path=require('node:path');
 const ExcelJS=require('exceljs');
 
 process.env.USE_ARANGO='false';
 process.env.JWT_SECRET='test-secret-that-is-not-used-in-production';
+const uploadDirectory=fs.mkdtempSync(path.join(os.tmpdir(),'kotva-documents-'));process.env.UPLOAD_DIR=uploadDirectory;
 const{start}=require('../server');
 
 let server,baseUrl;
@@ -11,7 +15,7 @@ test.before(async()=>{
   server=await start(0);
   baseUrl=`http://127.0.0.1:${server.address().port}`;
 });
-test.after(()=>new Promise(resolve=>server.close(resolve)));
+test.after(()=>new Promise(resolve=>server.close(()=>{fs.rmSync(uploadDirectory,{recursive:true,force:true});resolve()})));
 
 async function request(path,options={}){
   const response=await fetch(`${baseUrl}${path}`,options);
@@ -203,4 +207,14 @@ test('notification center creates tenant-safe user-dismissible operational alert
   const afterDismiss=await request('/api/notifications',{headers:{cookie:agent.cookie}});assert.ok(!afterDismiss.body.some(item=>item.key===expiry.key));assert.ok(afterDismiss.body.some(item=>item.key===payment.key));
   const analyst=await login('analyst','Analyst123!'),analystNotifications=await request('/api/notifications',{headers:{cookie:analyst.cookie}});assert.ok(analystNotifications.body.some(item=>item.key===expiry.key));
   const adria=await login('adria-admin','Adria123!'),crossTenant=await request(`/api/notifications/${encodeURIComponent(payment.key)}/dismiss`,{method:'POST',headers:{cookie:adria.cookie}});assert.equal(crossTenant.response.status,404);
+});
+
+test('policy documents enforce file rules and tenant-protected downloads',async()=>{
+  const agent=await login('agent','Agent123!'),policy=await request('/api/clients',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify(withPolicy({name:'Document',surname:'Owner',age:38,insuranceType:'DZO',insurer:'Uniqa',saleDate:'2026-09-01'},{insuredSubject:'Polisa sa dokumentacijom'}))});assert.equal(policy.response.status,201);
+  const form=new FormData();form.append('document',new Blob(['%PDF-1.4\nKotva test document'],{type:'application/pdf'}),'ugovor-polise.pdf');const uploaded=await request(`/api/clients/${policy.body.id}/documents`,{method:'POST',headers:{cookie:agent.cookie},body:form});assert.equal(uploaded.response.status,201);assert.equal(uploaded.body.originalName,'ugovor-polise.pdf');assert.equal(uploaded.body.mimeType,'application/pdf');assert.equal(uploaded.body.policyNumber,policy.body.policyNumber);assert.equal(uploaded.body.uploadedBy.username,'agent');assert.equal(uploaded.body.storageName,undefined);
+  const listed=await request('/api/documents',{headers:{cookie:agent.cookie}}),document=listed.body.find(item=>item.id===uploaded.body.id);assert.ok(document);assert.equal(document.storageName,undefined);
+  const download=await fetch(`${baseUrl}/api/documents/${uploaded.body.id}/download`,{headers:{cookie:agent.cookie}});assert.equal(download.status,200);assert.equal(download.headers.get('content-type'),'application/pdf');assert.match(await download.text(),/^%PDF-1.4/);
+  const invalidForm=new FormData();invalidForm.append('document',new Blob(['not allowed'],{type:'text/plain'}),'notes.txt');const invalid=await request(`/api/clients/${policy.body.id}/documents`,{method:'POST',headers:{cookie:agent.cookie},body:invalidForm});assert.equal(invalid.response.status,400);assert.match(invalid.body.message,/PDF, JPG i PNG/);
+  const analyst=await login('analyst','Analyst123!'),deniedForm=new FormData();deniedForm.append('document',new Blob(['%PDF'],{type:'application/pdf'}),'denied.pdf');const denied=await request(`/api/clients/${policy.body.id}/documents`,{method:'POST',headers:{cookie:analyst.cookie},body:deniedForm});assert.equal(denied.response.status,403);
+  const adria=await login('adria-admin','Adria123!'),crossTenant=await fetch(`${baseUrl}/api/documents/${uploaded.body.id}/download`,{headers:{cookie:adria.cookie}});assert.equal(crossTenant.status,404);
 });
