@@ -194,3 +194,13 @@ test('premium payments prevent duplicates and overpayment while updating policy 
   const analyst=await login('analyst','Analyst123!'),denied=await request('/api/payments',{method:'POST',headers:{cookie:analyst.cookie,'content-type':'application/json'},body:JSON.stringify(firstPayload)});assert.equal(denied.response.status,403);
   const adria=await login('adria-admin','Adria123!'),adriaPayments=await request('/api/payments',{headers:{cookie:adria.cookie}});assert.ok(adriaPayments.body.every(payment=>payment.tenantId==='tenant-adria'));
 });
+
+test('notification center creates tenant-safe user-dismissible operational alerts',async()=>{
+  const today=new Date().toISOString().slice(0,10),expiryDate=new Date(`${today}T00:00:00Z`);expiryDate.setUTCDate(expiryDate.getUTCDate()+7);const validUntil=expiryDate.toISOString().slice(0,10),agent=await login('agent','Agent123!');
+  const policy=await request('/api/clients',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify(withPolicy({name:'Reminder',surname:'Customer',age:43,insuranceType:'DZO',insurer:'Uniqa',saleDate:today},{validUntil,premium:2500,paymentStatus:'Neplaćeno',insuredSubject:'Polisa za test podsetnika'}))});assert.equal(policy.response.status,201);
+  const result=await request('/api/notifications',{headers:{cookie:agent.cookie}});assert.equal(result.response.status,200);const expiry=result.body.find(item=>item.key===`policy-expiring:${policy.body.id}`),payment=result.body.find(item=>item.key===`payment-due:${policy.body.id}`);assert.ok(expiry);assert.equal(expiry.severity,'high');assert.ok(payment);
+  const dismissed=await request(`/api/notifications/${encodeURIComponent(expiry.key)}/dismiss`,{method:'POST',headers:{cookie:agent.cookie}});assert.equal(dismissed.response.status,204);
+  const afterDismiss=await request('/api/notifications',{headers:{cookie:agent.cookie}});assert.ok(!afterDismiss.body.some(item=>item.key===expiry.key));assert.ok(afterDismiss.body.some(item=>item.key===payment.key));
+  const analyst=await login('analyst','Analyst123!'),analystNotifications=await request('/api/notifications',{headers:{cookie:analyst.cookie}});assert.ok(analystNotifications.body.some(item=>item.key===expiry.key));
+  const adria=await login('adria-admin','Adria123!'),crossTenant=await request(`/api/notifications/${encodeURIComponent(payment.key)}/dismiss`,{method:'POST',headers:{cookie:adria.cookie}});assert.equal(crossTenant.response.status,404);
+});

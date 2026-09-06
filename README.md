@@ -21,6 +21,7 @@ that update automatically when new records are added.
 - Track extensible broker approval metadata for vehicle insurance
 - Register and process policy-linked claims with role-based status changes and audit history
 - Record premium payments, prevent duplicate references and overpayments, and update policy balances automatically
+- Surface user-specific reminders for expiring policies, premium debt, and aging claims
 - Export a tenant-specific Excel market-share report for travel, auto, property, and DZO insurance
 - Display recently added clients in a responsive table
 - Search names regardless of letter case and diacritics
@@ -84,6 +85,7 @@ Document collections:
 - `tenants`
 - `claims`
 - `payments`
+- `notification_dismissals`
 
 Edge collections:
 
@@ -230,6 +232,8 @@ secrets and must not expose the database directly.
 | PATCH | `/api/claims/:id/status` | Update claim status and append an audit-history entry |
 | GET | `/api/payments` | List the current tenant's premium payments |
 | POST | `/api/payments` | Record a policy payment and update its balance/status |
+| GET | `/api/notifications` | Generate the current user's operational notification feed |
+| POST | `/api/notifications/:key/dismiss` | Mark one generated notification as read for the current user |
 | GET | `/api/insurers` | List insurance companies |
 | POST | `/api/insurers` | Create an insurance company |
 | GET | `/api/search?q=query` | Search clients by name |
@@ -292,6 +296,19 @@ also appended to the policy audit history. ArangoDB connects policy and payment
 documents through `has_payment`, while compound indexes support tenant-safe
 receipt, date, and reference lookups. Analysts have read-only access.
 
+## Notification Center
+
+The dashboard generates actionable reminders directly from current policy,
+payment, and claim data. It highlights expired policies, policies expiring in
+the next 30 days, unpaid or partially paid premiums, and claims left open for
+seven days or longer. Severity and due date determine display order.
+
+Notifications are tenant-scoped and generated on demand, so they cannot become
+stale when business data changes. A user can mark an item as read without
+hiding it from colleagues: dismissals are stored per tenant, user, and stable
+notification key in `notification_dismissals`. A compound unique index prevents
+duplicate dismissals.
+
 ## NoSQL Concepts Demonstrated
 
 - Flexible JSON document model
@@ -300,6 +317,7 @@ receipt, date, and reference lookups. Analysts have read-only access.
 - Role-protected broker approval workflow with status, timestamp, and approving-user metadata
 - Tenant-safe claims workflow with policy-period validation and append-only status history
 - Premium payment ledger with duplicate prevention, balance validation, and policy audit integration
+- Derived operational notifications with severity ordering and per-user dismissal state
 - Denormalization
 - Persistent and inverted indexes
 - Text normalization with an ArangoDB analyzer
