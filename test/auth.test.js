@@ -35,7 +35,14 @@ function withPolicy(data,overrides={}){
 
 test('health endpoint remains public',async()=>{
   const{response,body}=await request('/api/health');
-  assert.equal(response.status,200);assert.equal(body.status,'ok');
+  assert.equal(response.status,200);assert.equal(body.status,'ok');assert.match(response.headers.get('x-request-id'),/^[0-9a-f-]{36}$/);
+});
+
+test('liveness, readiness, and runtime metrics support production monitoring',async()=>{
+  const live=await request('/api/health/live'),ready=await request('/api/health/ready');assert.equal(live.response.status,200);assert.equal(live.body.status,'alive');assert.ok(Number.isInteger(live.body.uptimeSeconds));assert.equal(ready.response.status,200);assert.equal(ready.body.status,'ready');assert.equal(ready.body.databaseReady,true);
+  const anonymous=await request('/api/metrics');assert.equal(anonymous.response.status,401);
+  const agent=await login('agent','Agent123!'),denied=await request('/api/metrics',{headers:{cookie:agent.cookie}});assert.equal(denied.response.status,403);
+  const admin=await login('admin','Admin123!'),metrics=await request('/api/metrics',{headers:{cookie:admin.cookie}});assert.equal(metrics.response.status,200);assert.ok(metrics.body.requests>=5);assert.ok(metrics.body.averageDurationMs>=0);assert.ok(metrics.body.maxDurationMs>=metrics.body.averageDurationMs);assert.ok(metrics.body.memory.rssMb>0);assert.equal(metrics.body.database,'memory');assert.ok(metrics.body.statusCodes['200']>=2);
 });
 
 test('protected endpoints reject anonymous requests',async()=>{
