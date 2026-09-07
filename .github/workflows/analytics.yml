@@ -1,0 +1,36 @@
+name: Analytics notebook
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "analytics/**"
+      - ".github/workflows/analytics.yml"
+  push:
+    branches: [main]
+    paths:
+      - "analytics/**"
+      - ".github/workflows/analytics.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  execute-notebook:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: analytics/requirements.txt
+      - name: Install analytics dependencies
+        run: python -m pip install -r analytics/requirements.txt
+      - name: Execute portfolio analysis
+        run: python -m jupyter nbconvert --to notebook --execute analytics/kotva_portfolio_analysis.ipynb --output executed.ipynb --output-dir "${{ runner.temp }}" --ExecutePreprocessor.timeout=120
+      - name: Validate privacy and rendered outputs
+        run: python -c "import os, nbformat, pandas as pd; from pathlib import Path; notebook=nbformat.read(Path(os.environ['RUNNER_TEMP'])/'executed.ipynb',as_version=4); errors=[output for cell in notebook.cells for output in cell.get('outputs',[]) if output.get('output_type')=='error']; images=[output for cell in notebook.cells for output in cell.get('outputs',[]) if 'image/png' in output.get('data',{})]; data=pd.read_csv('analytics/data/sample_analytics_dataset.csv'); forbidden={'name','surname','jmbg','passport_number','client_name'}; assert not errors; assert len(images)>=3; assert forbidden.isdisjoint(data.columns); assert data['policy_number'].is_unique"
+
