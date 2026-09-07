@@ -22,6 +22,7 @@ that update automatically when new records are added.
 - Register and process policy-linked claims with role-based status changes and audit history
 - Record premium payments, prevent duplicate references and overpayments, and update policy balances automatically
 - Surface user-specific reminders for expiring policies, premium debt, and aging claims
+- Generate a professional, tenant-protected PDF policy from the latest policy data
 - Upload and securely download tenant-protected PDF and image policy documents
 - Review an administrator-only, append-only audit trail of every business mutation
 - Monitor request volume, latency, errors, memory, readiness, and graceful shutdown behavior
@@ -60,10 +61,10 @@ The project intentionally does not use Ruff, ESLint, Prettier enforcement, or a
 maximum-line-length rule. CI evaluates correctness and deployability without
 rejecting the existing compact source-code style.
 
-The separate `Playwright E2E` job runs seven serial Chromium workflows against
+The separate `Playwright E2E` job runs eight serial Chromium workflows against
 an isolated in-memory application server. It covers authentication, role-based
 UI permissions, standard/travel/vehicle policy creation, broker confirmation,
-claim processing, and partial-to-full premium payment. Failed runs retain an
+claim processing, partial-to-full premium payment, and policy PDF download. Failed runs retain an
 HTML report, screenshots, video, and a Playwright trace as a CI artifact.
 
 Run the browser suite locally with:
@@ -248,6 +249,7 @@ secrets and must not expose the database directly.
 | GET | `/api/config` | Return the supported insurance types |
 | GET | `/api/clients` | List clients |
 | POST | `/api/clients` | Create a client and synchronize graph data |
+| GET | `/api/clients/:id/policy.pdf` | Generate and download the latest tenant-protected policy PDF |
 | PATCH | `/api/clients/:id/policy` | Change policy/payment status and append an audit-history entry |
 | POST | `/api/clients/:id/broker-approval` | Confirm auto-insurance vehicle details as an agent or administrator |
 | GET | `/api/claims` | List the current tenant's claims |
@@ -337,7 +339,17 @@ hiding it from colleagues: dismissals are stored per tenant, user, and stable
 notification key in `notification_dismissals`. A compound unique index prevents
 duplicate dismissals.
 
-## Policy Document Management
+## Automated Policy PDF Generation
+
+Every user role can download an official-looking policy PDF directly from the
+client table. The server builds it on demand from the current tenant-scoped
+record, so status changes, payment details, and broker confirmation are never
+stale and no duplicate binary needs to be stored. The document includes policy
+and customer identity, coverage dates, premium, payment data, selling agent,
+and conditional travel or vehicle details. Responses are marked `no-store` and
+cross-tenant identifiers return `404` without revealing whether a policy exists.
+
+## Uploaded Policy Documents
 
 Agents and administrators can upload PDF, JPEG, and PNG policy documents up to
 5 MB. Files receive cryptographically random storage names, while original file

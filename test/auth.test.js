@@ -119,6 +119,17 @@ test('auto insurance requires vehicle details and supports broker approval',asyn
   assert.equal(crossTenant.response.status,404);
 });
 
+test('policy PDF is generated dynamically and remains tenant protected',async()=>{
+  const agent=await login('agent','Agent123!');
+  const created=await request('/api/clients',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify(withPolicy({name:'PDF',surname:'Customer',age:36,insuranceType:'Putno',insurer:'Uniqa',saleDate:'2026-09-04'},{jmbg:'0404990712346',passportNumber:'PDF123456',destination:'Spain'}))});
+  assert.equal(created.response.status,201);
+  const response=await fetch(`${baseUrl}/api/clients/${created.body.id}/policy.pdf`,{headers:{cookie:agent.cookie}}),bytes=Buffer.from(await response.arrayBuffer());
+  assert.equal(response.status,200);assert.match(response.headers.get('content-type'),/^application\/pdf/);assert.match(response.headers.get('content-disposition'),new RegExp(`kotva-policy-${created.body.policyNumber}\\.pdf`));assert.match(response.headers.get('cache-control'),/no-store/);assert.equal(bytes.subarray(0,5).toString(),'%PDF-');assert.ok(bytes.length>1500);assert.ok(bytes.subarray(-20).toString().includes('%%EOF'));
+  const analyst=await login('analyst','Analyst123!'),analystResponse=await fetch(`${baseUrl}/api/clients/${created.body.id}/policy.pdf`,{headers:{cookie:analyst.cookie}});assert.equal(analystResponse.status,200);
+  const adria=await login('adria-admin','Adria123!'),crossTenant=await request(`/api/clients/${created.body.id}/policy.pdf`,{headers:{cookie:adria.cookie}});assert.equal(crossTenant.response.status,404);
+  const anonymous=await request(`/api/clients/${created.body.id}/policy.pdf`);assert.equal(anonymous.response.status,401);
+});
+
 test('Excel export contains tenant market-share percentages and DZO',async()=>{
   const agent=await login('agent','Agent123!');
   const dzo=await request('/api/clients',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify(withPolicy({name:'DZO',surname:'Customer',age:34,insuranceType:'DZO',insurer:'Uniqa',saleDate:'2026-09-04'}))});
