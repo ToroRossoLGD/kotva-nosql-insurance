@@ -11,6 +11,20 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+  warehouse:
+    image: postgres:16-alpine
+    container_name: kotva-warehouse
+    environment:
+      POSTGRES_DB: kotva_warehouse
+      POSTGRES_USER: kotva
+      POSTGRES_PASSWORD: ${WAREHOUSE_PASSWORD:-kotva_warehouse123}
+    ports: ["127.0.0.1:${WAREHOUSE_PORT:-5433}:5432"]
+    volumes: ["warehouse_data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
   app:
     build: .
     container_name: kotva-app
@@ -27,10 +41,12 @@ services:
       ANALYST_PASSWORD: ${ANALYST_PASSWORD:-Analyst123!}
       ADRIA_ADMIN_PASSWORD: ${ADRIA_ADMIN_PASSWORD:-Adria123!}
       UPLOAD_DIR: /app/uploads
+      WAREHOUSE_URL: postgresql://kotva:${WAREHOUSE_PASSWORD:-kotva_warehouse123}@warehouse:5432/kotva_warehouse
     ports: ["127.0.0.1:${APP_PORT:-3001}:3000"]
     volumes: ["document_uploads:/app/uploads"]
     depends_on:
       arangodb: {condition: service_healthy}
+      warehouse: {condition: service_healthy}
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 10s
@@ -41,3 +57,4 @@ services:
 volumes:
   arango_data:
   document_uploads:
+  warehouse_data:

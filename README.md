@@ -25,6 +25,7 @@ that update automatically when new records are added.
 - Generate a professional, tenant-protected PDF policy from the latest policy data
 - Run tenant-scoped ETL jobs with filters, quality checks, metrics, and execution history
 - Export anonymized policy, payment, claim, quality, and analysis-ready CSV datasets
+- Load tenant-isolated, pseudonymized analytics into a PostgreSQL star-schema warehouse
 - Track currency-safe insurance KPIs for premium collection, claims, losses, growth, and cancellations
 - Monitor completeness, validity, uniqueness, referential integrity, freshness, and ETL quality trends
 - Explore a reproducible pandas/seaborn Jupyter case study with committed charts and business recommendations
@@ -50,6 +51,7 @@ that update automatically when new records are added.
 
 - **Backend:** Node.js and Express
 - **Database:** ArangoDB 3.12
+- **Analytics warehouse:** PostgreSQL 16
 - **Query language:** AQL
 - **Frontend:** HTML, CSS, and JavaScript
 - **Charts:** Chart.js
@@ -67,7 +69,7 @@ The project intentionally does not use Ruff, ESLint, Prettier enforcement, or a
 maximum-line-length rule. CI evaluates correctness and deployability without
 rejecting the existing compact source-code style.
 
-The separate `Playwright E2E` job runs eleven serial Chromium workflows against
+The separate `Playwright E2E` job runs twelve serial Chromium workflows against
 an isolated in-memory application server. It covers authentication, role-based
 UI permissions, standard/travel/vehicle policy creation, broker confirmation,
 claim processing, payments, policy PDF download, ETL/CSV workflows, insurance KPIs, and the Data Quality dashboard. Failed runs retain an
@@ -85,7 +87,8 @@ npm run test:e2e
 The application consists of three layers:
 
 ```text
-Browser frontend → Express REST API → ArangoDB
+Browser frontend → Express REST API → ArangoDB (operational NoSQL)
+                                    → PostgreSQL (analytical star schema)
 ```
 
 ArangoDB is used for several NoSQL concepts in the same project:
@@ -112,6 +115,15 @@ Document collections:
 - `policy_documents`
 - `business_audit`
 - `etl_runs`
+
+PostgreSQL analytical model:
+
+```text
+dim_date ───────────────┐
+dim_customer ───────────┤
+dim_insurer ────────────┼→ fact_policies ← fact_payments / fact_claims
+dim_insurance_type ─────┘
+```
 
 Edge collections:
 
@@ -174,6 +186,7 @@ Open the services in a browser:
 
 - Application: http://localhost:3001
 - ArangoDB web interface: http://localhost:8529
+- PostgreSQL warehouse: `localhost:5433` (Power BI, Tableau, or SQL clients)
 
 Local demonstration credentials:
 
@@ -281,6 +294,9 @@ secrets and must not expose the database directly.
 | GET | `/api/etl/runs` | List the tenant's latest ETL executions for analysts and administrators |
 | POST | `/api/etl/runs` | Run the filtered extraction, transformation, and quality-check pipeline |
 | GET | `/api/etl/exports/:dataset` | Export one of five analysis-ready CSV datasets |
+| GET | `/api/warehouse/status` | Return tenant warehouse counts and latest load time |
+| POST | `/api/warehouse/load` | Idempotently load the tenant's operational data into PostgreSQL |
+| GET | `/api/warehouse/reports/:report` | Query a predefined `monthly` or `insurers` warehouse report |
 
 ## Data Analytics and ETL Studio
 
@@ -303,6 +319,26 @@ Each customer receives a stable tenant-specific HMAC pseudonym such as
 names, JMBG values, passport numbers, or claim descriptions. ETL access is
 restricted to `analyst` and `admin`; every query and export remains tenant
 isolated.
+
+## PostgreSQL Analytics Warehouse
+
+The Docker environment includes a separate PostgreSQL 16 OLAP database. An
+analyst or administrator can trigger an `ArangoDB → transform → PostgreSQL`
+load from ETL Studio. The loader runs inside a transaction and uses tenant-aware
+upserts, so repeating a load updates existing facts instead of duplicating them.
+
+The star schema contains date, pseudonymous customer, insurer, and insurance-
+type dimensions plus policy, payment, and claim facts. Names, JMBG values, and
+passport numbers never enter the warehouse. Tenant IDs are part of every
+business uniqueness rule and every report filter. Two SQL views expose monthly
+portfolio and insurer-performance datasets suitable for Power BI or Tableau.
+
+ArangoDB remains the source of truth for transactional documents and graph
+relationships; PostgreSQL is optimized for joins, aggregations, and BI tools.
+The schema is created automatically from `warehouse/schema.sql`. Docker exposes
+it on port `5433` with database/user `kotva_warehouse`/`kotva`; the local demo
+password is configurable through `WAREHOUSE_PASSWORD` and must be replaced
+outside demonstration use.
 
 ## Insurance KPI Dashboard
 
