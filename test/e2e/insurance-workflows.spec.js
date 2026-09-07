@@ -140,4 +140,13 @@ test.describe.serial('Kotva browser workflows',()=>{
     await expect(page.locator('#payment-message')).toContainText('Preostalo: 0 RSD');
     await expect(page.locator('#clients-body tr').filter({hasText:'PaymentE2E Playwright'})).toContainText('Plaćeno');
   });
+
+  test('8. generated policy PDF downloads from the client table',async({page})=>{
+    await login(page);
+    const form=await createPolicy(page,{name:'PolicyPdfE2E'});await form.locator('button').click();
+    const row=page.locator('#clients-body tr').filter({hasText:'PolicyPdfE2E Playwright'});await expect(row.locator('[data-policy-pdf]')).toBeVisible();
+    const[download]=await Promise.all([page.waitForEvent('download'),row.locator('[data-policy-pdf]').click()]);
+    expect(download.suggestedFilename()).toMatch(/^kotva-policy-POL-.*\.pdf$/);expect(await download.failure()).toBeNull();
+    const stream=await download.createReadStream(),chunks=[];for await(const chunk of stream)chunks.push(chunk);const bytes=Buffer.concat(chunks);expect(bytes.subarray(0,5).toString()).toBe('%PDF-');expect(bytes.length).toBeGreaterThan(1500);
+  });
 });
