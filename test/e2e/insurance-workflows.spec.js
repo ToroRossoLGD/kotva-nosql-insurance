@@ -149,4 +149,9 @@ test.describe.serial('Kotva browser workflows',()=>{
     expect(download.suggestedFilename()).toMatch(/^kotva-policy-POL-.*\.pdf$/);expect(await download.failure()).toBeNull();
     const stream=await download.createReadStream(),chunks=[];for await(const chunk of stream)chunks.push(chunk);const bytes=Buffer.concat(chunks);expect(bytes.subarray(0,5).toString()).toBe('%PDF-');expect(bytes.length).toBeGreaterThan(1500);
   });
+
+  test('9. analyst runs ETL and downloads an anonymous CSV dataset',async({page})=>{
+    await login(page,'analyst','Analyst123!');await expect(page.locator('#etl')).toBeVisible();await page.locator('#etl-type').selectOption('DZO');await page.locator('#etl-form button[type="submit"]').click();await expect(page.locator('#etl-message')).toContainText('uspešno završen');await expect(page.locator('#etl-summary')).toContainText('Transformisano');
+    const[download]=await Promise.all([page.waitForEvent('download'),page.locator('[data-csv="analytics-dataset.csv"]').click()]);expect(download.suggestedFilename()).toMatch(/^kotva-analytics-dataset-.*\.csv$/);const stream=await download.createReadStream(),chunks=[];for await(const chunk of stream)chunks.push(chunk);const csv=Buffer.concat(chunks).toString('utf8');expect(csv).toContain('customer_id');expect(csv).toContain('CUST-');expect(csv).not.toMatch(/jmbg|passport_number|client_name/i);
+  });
 });

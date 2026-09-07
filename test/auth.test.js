@@ -130,6 +130,17 @@ test('policy PDF is generated dynamically and remains tenant protected',async()=
   const anonymous=await request(`/api/clients/${created.body.id}/policy.pdf`);assert.equal(anonymous.response.status,401);
 });
 
+test('ETL creates an auditable run and exports anonymous analysis-ready CSV datasets',async()=>{
+  const agent=await login('agent','Agent123!'),policy=await request('/api/clients',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify(withPolicy({name:'Sensitive',surname:'AnalystSource',age:34,insuranceType:'DZO',insurer:'Uniqa',saleDate:'2026-09-06'},{premium:24000,paymentStatus:'Neplaćeno'}))});assert.equal(policy.response.status,201);
+  const agentDenied=await request('/api/etl/runs',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:'{}'});assert.equal(agentDenied.response.status,403);
+  const analyst=await login('analyst','Analyst123!'),filters={dateFrom:'2026-09-01',dateTo:'2026-09-30',insuranceType:'DZO',insurer:'Uniqa'},run=await request('/api/etl/runs',{method:'POST',headers:{cookie:analyst.cookie,'content-type':'application/json'},body:JSON.stringify(filters)});assert.equal(run.response.status,201);assert.equal(run.body.status,'completed');assert.ok(run.body.extractedRecords>=1);assert.ok(run.body.transformedRows>=1);assert.equal(run.body.initiatedBy.role,'analyst');
+  const query=new URLSearchParams(filters),response=await fetch(`${baseUrl}/api/etl/exports/analytics-dataset.csv?${query}`,{headers:{cookie:analyst.cookie}}),bytes=Buffer.from(await response.arrayBuffer()),csv=bytes.toString('utf8');assert.equal(response.status,200);assert.match(response.headers.get('content-type'),/text\/csv/);assert.match(response.headers.get('content-disposition'),/analytics-dataset/);assert.deepEqual([...bytes.subarray(0,3)],[0xef,0xbb,0xbf]);assert.match(csv,/customer_id/);assert.match(csv,/CUST-[A-F0-9]{16}/);assert.match(csv,/DZO,Uniqa,2026-09-06,2026,9,Q3/);assert.doesNotMatch(csv,/Sensitive|AnalystSource|jmbg|passport/i);
+  for(const dataset of['policies.csv','payments.csv','claims.csv','etl-quality-report.csv']){const exportResponse=await fetch(`${baseUrl}/api/etl/exports/${dataset}`,{headers:{cookie:analyst.cookie}});assert.equal(exportResponse.status,200);assert.match(exportResponse.headers.get('content-type'),/text\/csv/)}
+  const runs=await request('/api/etl/runs',{headers:{cookie:analyst.cookie}});assert.equal(runs.response.status,200);assert.equal(runs.body[0].id,run.body.id);assert.equal(runs.body[0].tenantId,'tenant-kotva');
+  const invalid=await request('/api/etl/runs',{method:'POST',headers:{cookie:analyst.cookie,'content-type':'application/json'},body:JSON.stringify({dateFrom:'2026-10-01',dateTo:'2026-09-01'})});assert.equal(invalid.response.status,400);
+  const adria=await login('adria-admin','Adria123!'),adriaRuns=await request('/api/etl/runs',{headers:{cookie:adria.cookie}});assert.ok(adriaRuns.body.every(item=>item.tenantId==='tenant-adria'));
+});
+
 test('Excel export contains tenant market-share percentages and DZO',async()=>{
   const agent=await login('agent','Agent123!');
   const dzo=await request('/api/clients',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify(withPolicy({name:'DZO',surname:'Customer',age:34,insuranceType:'DZO',insurer:'Uniqa',saleDate:'2026-09-04'}))});
