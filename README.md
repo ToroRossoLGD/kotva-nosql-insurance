@@ -24,6 +24,7 @@ that update automatically when new records are added.
 - Surface user-specific reminders for expiring policies, premium debt, and aging claims
 - Upload and securely download tenant-protected PDF and image policy documents
 - Review an administrator-only, append-only audit trail of every business mutation
+- Monitor request volume, latency, errors, memory, readiness, and graceful shutdown behavior
 - Export a tenant-specific Excel market-share report for travel, auto, property, and DZO insurance
 - Display recently added clients in a responsive table
 - Search names regardless of letter case and diacritics
@@ -238,6 +239,8 @@ secrets and must not expose the database directly.
 | Method | Endpoint | Purpose |
 |---|---|---|
 | GET | `/api/health` | Return the application and database status |
+| GET | `/api/health/live` | Confirm that the Node.js process is alive |
+| GET | `/api/health/ready` | Confirm that the application and required database are ready |
 | POST | `/api/auth/login` | Sign in and create an HttpOnly session cookie |
 | POST | `/api/auth/logout` | Clear the current session |
 | GET | `/api/auth/me` | Return the signed-in user |
@@ -258,6 +261,7 @@ secrets and must not expose the database directly.
 | POST | `/api/clients/:id/documents` | Upload one PDF, JPG, or PNG document to a policy |
 | GET | `/api/documents/:id/download` | Download a document through tenant-protected access |
 | GET | `/api/audit` | Return filterable tenant business events for administrators |
+| GET | `/api/metrics` | Return administrator-only runtime request and process metrics |
 | GET | `/api/insurers` | List insurance companies |
 | POST | `/api/insurers` | Create an insurance company |
 | GET | `/api/search?q=query` | Search clients by name |
@@ -365,6 +369,25 @@ newest first, limited to at most 200 records, and can be filtered by `action` or
 file contents, and raw request bodies are never copied into the audit trail.
 Compound ArangoDB indexes support chronological review and entity history.
 
+## Production Readiness and Observability
+
+Every HTTP response receives a unique `X-Request-Id` header for correlating
+client reports with server activity. The process tracks request volume, HTTP
+status counts, methods, client/server errors, average and maximum response time,
+uptime, database mode, and Node.js memory usage. Runtime metrics are available
+only to authenticated administrators and are displayed in the security panel.
+
+`/api/health/live` verifies that the process is running, while
+`/api/health/ready` also verifies the ArangoDB connection when the database is
+required. Docker Compose uses readiness for its application health check.
+Optional structured JSON request logging can be enabled with
+`REQUEST_LOGGING=true`.
+
+The container declares `SIGTERM` as its stop signal. The application stops
+accepting new connections, gives active requests up to ten seconds to finish,
+and exits cleanly within Docker's 15-second grace period. This behavior makes
+rolling deployments and controlled container restarts safer.
+
 ## NoSQL Concepts Demonstrated
 
 - Flexible JSON document model
@@ -376,6 +399,7 @@ Compound ArangoDB indexes support chronological review and entity history.
 - Derived operational notifications with severity ordering and per-user dismissal state
 - Protected policy-document storage with MIME/size validation and graph relationships
 - Administrator-only business audit with safe metadata, filtering, and compound indexes
+- Request correlation, protected runtime metrics, health probes, and graceful container shutdown
 - Denormalization
 - Persistent and inverted indexes
 - Text normalization with an ArangoDB analyzer

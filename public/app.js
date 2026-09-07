@@ -72,7 +72,8 @@ function applyPermissions(user){
 }
 async function loadLoginAttempts(){
   if(currentUser?.role!=='admin')return;
-  const[attempts,audit]=await Promise.all([api('/api/auth/login-attempts'),api('/api/audit')]);
+  const[attempts,audit,metrics]=await Promise.all([api('/api/auth/login-attempts'),api('/api/audit'),api('/api/metrics')]);
+  const runtime=[['Zahtevi',metrics.requests,'od pokretanja'],['Prosek',`${metrics.averageDurationMs} ms`,'vreme odgovora'],['Greške',metrics.serverErrors,'serverske greške'],['Memorija',`${metrics.memory.rssMb} MB`,'RSS procesa'],['Uptime',`${metrics.uptimeSeconds}s`,metrics.database]];$('#runtime-metrics').innerHTML=runtime.map(item=>`<article class="stat"><div><span>${item[0]}</span><strong>${item[1]}</strong><small>${item[2]}</small></div></article>`).join('');
   $('#login-attempts-body').innerHTML=attempts.map(item=>`<tr><td>${new Date(item.timestamp).toLocaleString('sr-RS')}</td><td>${item.username||'—'}</td><td><span class="${item.successful?'status-success':'status-failed'}">${item.successful?'Uspešno':'Neuspešno'}</span></td><td>${item.ip||'—'}</td></tr>`).join('')||'<tr><td colspan="4">Nema evidentiranih pokušaja.</td></tr>';
   $('#business-audit-body').innerHTML=audit.map(item=>`<tr><td>${new Date(item.timestamp).toLocaleString('sr-RS')}</td><td><strong>${escapeHtml(item.actor?.displayName||'—')}</strong><small class="travel-meta">${escapeHtml(item.actor?.role||'—')}</small></td><td><span class="tag">${escapeHtml(item.action)}</span></td><td>${escapeHtml(item.entityType)}<small class="travel-meta">${escapeHtml(item.entityId)}</small></td><td>${escapeHtml(item.summary)}</td><td>${escapeHtml(item.ip||'—')}</td></tr>`).join('')||'<tr><td colspan="6">Nema poslovnih promena.</td></tr>';
 }

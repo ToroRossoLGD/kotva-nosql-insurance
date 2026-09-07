@@ -31,6 +31,13 @@ services:
     volumes: ["document_uploads:/app/uploads"]
     depends_on:
       arangodb: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    stop_grace_period: 15s
 volumes:
   arango_data:
   document_uploads:
