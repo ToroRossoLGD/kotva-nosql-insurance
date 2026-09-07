@@ -154,4 +154,8 @@ test.describe.serial('Kotva browser workflows',()=>{
     await login(page,'analyst','Analyst123!');await expect(page.locator('#etl')).toBeVisible();await page.locator('#etl-type').selectOption('DZO');await page.locator('#etl-form button[type="submit"]').click();await expect(page.locator('#etl-message')).toContainText('uspešno završen');await expect(page.locator('#etl-summary')).toContainText('Transformisano');
     const[download]=await Promise.all([page.waitForEvent('download'),page.locator('[data-csv="analytics-dataset.csv"]').click()]);expect(download.suggestedFilename()).toMatch(/^kotva-analytics-dataset-.*\.csv$/);const stream=await download.createReadStream(),chunks=[];for await(const chunk of stream)chunks.push(chunk);const csv=Buffer.concat(chunks).toString('utf8');expect(csv).toContain('customer_id');expect(csv).toContain('CUST-');expect(csv).not.toMatch(/jmbg|passport_number|client_name/i);
   });
+
+  test('10. analyst reviews currency-safe insurance KPIs',async({page})=>{
+    await login(page,'analyst','Analyst123!');await expect(page.locator('#kpi-currency')).toHaveValue('RSD');await expect(page.locator('#kpi-cards')).toContainText('Written premium');await expect(page.locator('#kpi-cards')).toContainText('Collection rate');await expect(page.locator('#kpi-cards')).toContainText('Estimated loss ratio');await expect(page.locator('#kpi-cards')).toContainText('Claim frequency');await expect(page.locator('.kpi-definition')).toContainText('nije računovodstveni incurred loss ratio');await expect(page.locator('#premium-trend-chart')).toBeVisible();await expect(page.locator('#insurer-kpi-chart')).toBeVisible();
+  });
 });
