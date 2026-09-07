@@ -158,4 +158,8 @@ test.describe.serial('Kotva browser workflows',()=>{
   test('10. analyst reviews currency-safe insurance KPIs',async({page})=>{
     await login(page,'analyst','Analyst123!');await expect(page.locator('#kpi-currency')).toHaveValue('RSD');await expect(page.locator('#kpi-cards')).toContainText('Written premium');await expect(page.locator('#kpi-cards')).toContainText('Collection rate');await expect(page.locator('#kpi-cards')).toContainText('Estimated loss ratio');await expect(page.locator('#kpi-cards')).toContainText('Claim frequency');await expect(page.locator('.kpi-definition')).toContainText('nije računovodstveni incurred loss ratio');await expect(page.locator('#premium-trend-chart')).toBeVisible();await expect(page.locator('#insurer-kpi-chart')).toBeVisible();
   });
+
+  test('11. analyst monitors data quality scores and ETL trend',async({page})=>{
+    await login(page,'analyst','Analyst123!');await expect(page.locator('#quality-status')).toContainText('Overall');await expect(page.locator('#quality-dimensions .quality-dimension')).toHaveCount(5);await expect(page.locator('#quality-dimensions')).toContainText('Completeness');await expect(page.locator('#quality-dimensions')).toContainText('Referential integrity');await expect(page.locator('#quality-updated')).toContainText('Poslednji ETL');await expect(page.locator('#quality-issues-chart')).toBeVisible();await expect(page.locator('#quality-trend-chart')).toBeVisible();
+  });
 });

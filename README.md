@@ -26,6 +26,7 @@ that update automatically when new records are added.
 - Run tenant-scoped ETL jobs with filters, quality checks, metrics, and execution history
 - Export anonymized policy, payment, claim, quality, and analysis-ready CSV datasets
 - Track currency-safe insurance KPIs for premium collection, claims, losses, growth, and cancellations
+- Monitor completeness, validity, uniqueness, referential integrity, freshness, and ETL quality trends
 - Upload and securely download tenant-protected PDF and image policy documents
 - Review an administrator-only, append-only audit trail of every business mutation
 - Monitor request volume, latency, errors, memory, readiness, and graceful shutdown behavior
@@ -64,10 +65,10 @@ The project intentionally does not use Ruff, ESLint, Prettier enforcement, or a
 maximum-line-length rule. CI evaluates correctness and deployability without
 rejecting the existing compact source-code style.
 
-The separate `Playwright E2E` job runs ten serial Chromium workflows against
+The separate `Playwright E2E` job runs eleven serial Chromium workflows against
 an isolated in-memory application server. It covers authentication, role-based
 UI permissions, standard/travel/vehicle policy creation, broker confirmation,
-claim processing, payments, policy PDF download, analyst ETL/CSV workflows, and the insurance KPI dashboard. Failed runs retain an
+claim processing, payments, policy PDF download, ETL/CSV workflows, insurance KPIs, and the Data Quality dashboard. Failed runs retain an
 HTML report, screenshots, video, and a Playwright trace as a CI artifact.
 
 Run the browser suite locally with:
@@ -273,6 +274,7 @@ secrets and must not expose the database directly.
 | GET | `/api/search?q=query` | Search clients by name |
 | GET | `/api/analytics` | Return the dashboard analytics data |
 | GET | `/api/analytics/kpis` | Return currency-separated insurance and financial KPIs |
+| GET | `/api/analytics/data-quality` | Return current quality scores, issues, thresholds, and ETL trend |
 | GET | `/api/exports/insurance-market-share.xlsx` | Download the current tenant's Excel market-share report |
 | GET | `/api/etl/runs` | List the tenant's latest ETL executions for analysts and administrators |
 | POST | `/api/etl/runs` | Run the filtered extraction, transformation, and quality-check pipeline |
@@ -315,6 +317,21 @@ financial card and chart, preventing the misleading totals common in portfolio
 dashboards without exchange-rate data. The UI and API explicitly document that
 the available loss ratio is based on estimated claim value divided by written
 premium; it is an analytical proxy, not an accounting incurred-loss ratio.
+
+## Data Quality Dashboard
+
+Analysts and administrators can monitor five calculated data-quality dimensions:
+completeness, validity, uniqueness, referential integrity, and freshness. Each
+dimension exposes its current value, explicit acceptance threshold, and
+pass/warning/fail status. The dashboard also shows an overall score, source
+record counts, the most recent eligible business date, orphan count, issue
+distribution, and a detailed table of validation findings.
+
+Every ETL execution stores a compact quality snapshot alongside its execution
+metrics. Those immutable snapshots drive a historical score chart, turning the
+ETL log into a basic data-observability layer rather than showing only the
+current state. Quality calculations and history remain restricted to analysts
+and administrators and isolated by tenant.
 
 ## Excel Market-Share Export
 
