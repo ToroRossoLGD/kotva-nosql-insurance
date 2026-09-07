@@ -27,6 +27,7 @@ that update automatically when new records are added.
 - Export anonymized policy, payment, claim, quality, and analysis-ready CSV datasets
 - Track currency-safe insurance KPIs for premium collection, claims, losses, growth, and cancellations
 - Monitor completeness, validity, uniqueness, referential integrity, freshness, and ETL quality trends
+- Explore a reproducible pandas/seaborn Jupyter case study with committed charts and business recommendations
 - Upload and securely download tenant-protected PDF and image policy documents
 - Review an administrator-only, append-only audit trail of every business mutation
 - Monitor request volume, latency, errors, memory, readiness, and graceful shutdown behavior
@@ -52,6 +53,7 @@ that update automatically when new records are added.
 - **Query language:** AQL
 - **Frontend:** HTML, CSS, and JavaScript
 - **Charts:** Chart.js
+- **Portfolio analysis:** Python, pandas, seaborn, matplotlib, and Jupyter
 - **Infrastructure:** Docker and Docker Compose
 
 ## Continuous Integration
@@ -332,6 +334,23 @@ metrics. Those immutable snapshots drive a historical score chart, turning the
 ETL log into a basic data-observability layer rather than showing only the
 current state. Quality calculations and history remain restricted to analysts
 and administrators and isolated by tenant.
+
+## Jupyter Portfolio Case Study
+
+The executed [Kotva portfolio analysis](analytics/kotva_portfolio_analysis.ipynb)
+turns the anonymized ETL output into a recruiter-friendly analytical case study.
+It validates schema and privacy constraints, calculates executive KPIs, explores
+monthly and year-over-year trends, benchmarks insurers, segments products and
+age groups, examines premium/age relationships, identifies payment risk, and
+finishes with evidence-backed business recommendations and explicit
+limitations.
+
+An anonymized sample dataset makes the notebook reproducible immediately, while
+the `KOTVA_DATASET` environment variable can point it at any fresh ETL export.
+All charts and outputs are committed for GitHub viewing. A separate GitHub
+Actions workflow installs the pinned analytics environment, executes every cell,
+rejects notebook errors or direct personal-data columns, and verifies that the
+expected visual outputs were rendered.
 
 ## Excel Market-Share Export
 

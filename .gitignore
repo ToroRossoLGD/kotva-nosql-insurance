@@ -11,6 +11,9 @@ test-results/
 Thumbs.db
 .vscode/
 .idea/
+.venv/
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
 pdf-cover-check.png
 DOKUMENTACIJA_KOTVA.html
 build_documentation_pdf.py
