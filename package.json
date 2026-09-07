@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "check": "node --check server.js && node --check public/app.js",
+    "check": "node --check server.js && node --check warehouse.js && node --check public/app.js",
     "test": "node --test test/auth.test.js",
     "test:e2e": "playwright test"
   },
@@ -29,7 +29,8 @@
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.3.0",
-    "pdfkit": "^0.17.2"
+    "pdfkit": "^0.17.2",
+    "pg": "^8.23.0"
   },
   "overrides": {
     "uuid": "^11.1.1"

@@ -63,6 +63,14 @@ test('analyst has read-only access',async()=>{
   assert.equal((await request('/api/clients',{method:'POST',headers:{cookie:analyst.cookie,'content-type':'application/json'},body:'{}'})).response.status,403);
 });
 
+test('analytics warehouse endpoints are role protected and report disabled state',async()=>{
+  const anonymous=await request('/api/warehouse/status');assert.equal(anonymous.response.status,401);
+  const agent=await login('agent','Agent123!');assert.equal((await request('/api/warehouse/status',{headers:{cookie:agent.cookie}})).response.status,403);
+  const analyst=await login('analyst','Analyst123!'),status=await request('/api/warehouse/status',{headers:{cookie:analyst.cookie}});assert.equal(status.response.status,200);assert.deepEqual(status.body,{configured:false,connected:false});
+  const load=await request('/api/warehouse/load',{method:'POST',headers:{cookie:analyst.cookie}});assert.equal(load.response.status,503);assert.match(load.body.message,/warehouse nije konfigurisan/i);
+  const report=await request('/api/warehouse/reports/monthly',{headers:{cookie:analyst.cookie}});assert.equal(report.response.status,503);
+});
+
 test('agent can create clients but cannot create insurers',async()=>{
   const agent=await login('agent','Agent123!');assert.equal(agent.response.status,200);
   const client=await request('/api/clients',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify(withPolicy({name:'Test',surname:'Agent',age:30,insuranceType:'Auto',insurer:'Uniqa',saleDate:'2026-09-01',vehicleMake:'Toyota',engineCapacity:1598,vehicleType:'Putničko',bodyType:'SUV'}))});

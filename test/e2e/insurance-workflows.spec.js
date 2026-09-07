@@ -162,4 +162,8 @@ test.describe.serial('Kotva browser workflows',()=>{
   test('11. analyst monitors data quality scores and ETL trend',async({page})=>{
     await login(page,'analyst','Analyst123!');await expect(page.locator('#quality-status')).toContainText('Overall');await expect(page.locator('#quality-dimensions .quality-dimension')).toHaveCount(5);await expect(page.locator('#quality-dimensions')).toContainText('Completeness');await expect(page.locator('#quality-dimensions')).toContainText('Referential integrity');await expect(page.locator('#quality-updated')).toContainText('Poslednji ETL');await expect(page.locator('#quality-issues-chart')).toBeVisible();await expect(page.locator('#quality-trend-chart')).toBeVisible();
   });
+
+  test('12. analyst sees PostgreSQL warehouse controls and graceful disabled state',async({page})=>{
+    await login(page,'analyst','Analyst123!');await expect(page.locator('#warehouse-panel')).toBeVisible();await expect(page.locator('#warehouse-panel')).toContainText('PostgreSQL star schema');await expect(page.locator('#warehouse-status')).toHaveText('NIJE KONFIGURISAN');await expect(page.locator('#warehouse-load')).toBeDisabled();await expect(page.locator('#warehouse-counts')).toContainText('Police');
+  });
 });
