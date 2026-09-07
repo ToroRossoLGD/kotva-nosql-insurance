@@ -141,6 +141,14 @@ test('ETL creates an auditable run and exports anonymous analysis-ready CSV data
   const adria=await login('adria-admin','Adria123!'),adriaRuns=await request('/api/etl/runs',{headers:{cookie:adria.cookie}});assert.ok(adriaRuns.body.every(item=>item.tenantId==='tenant-adria'));
 });
 
+test('insurance KPI dashboard calculates currency-safe premium and claim metrics',async()=>{
+  const agent=await login('agent','Agent123!'),created=await request('/api/clients',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify(withPolicy({name:'KPI',surname:'Metric',age:38,insuranceType:'DZO',insurer:'Uniqa',saleDate:'2026-09-05'},{premium:1000,currency:'EUR',paymentStatus:'Neplaćeno'}))});assert.equal(created.response.status,201);
+  const payment=await request('/api/payments',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify({clientId:created.body.id,paymentDate:'2026-09-06',amount:400,method:'Kartica',reference:'KPI-EUR-400'})});assert.equal(payment.response.status,201);
+  const claim=await request('/api/claims',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify({clientId:created.body.id,incidentDate:'2026-09-06',estimatedAmount:250,currency:'EUR',description:'KPI test claim with a valid description.'})});assert.equal(claim.response.status,201);
+  const result=await request('/api/analytics/kpis',{headers:{cookie:agent.cookie}});assert.equal(result.response.status,200);const eur=result.body.byCurrency.find(item=>item.currency==='EUR');assert.deepEqual(eur,{currency:'EUR',policyCount:1,writtenPremium:1000,collectedPremium:400,outstandingPremium:600,collectionRate:40,claimCount:1,claimFrequency:100,claimSeverity:250,claimExposure:250,estimatedLossRatio:25,averagePremium:1000,cancellationRate:0});const trend=result.body.monthlyTrend.find(item=>item.currency==='EUR').points.find(item=>item.month==='2026-09');assert.deepEqual(trend,{month:'2026-09',policyCount:1,writtenPremium:1000,collectedPremium:400});const insurer=result.body.insurerPerformance.find(item=>item.currency==='EUR'&&item.insurer==='Uniqa');assert.equal(insurer.collectionRate,40);assert.equal(insurer.estimatedLossRatio,25);assert.match(result.body.definitions.estimatedLossRatio,/not an incurred-loss accounting ratio/);
+  const adria=await login('adria-admin','Adria123!'),adriaKpis=await request('/api/analytics/kpis',{headers:{cookie:adria.cookie}});assert.ok(!adriaKpis.body.byCurrency.some(item=>item.currency==='EUR'));
+});
+
 test('Excel export contains tenant market-share percentages and DZO',async()=>{
   const agent=await login('agent','Agent123!');
   const dzo=await request('/api/clients',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify(withPolicy({name:'DZO',surname:'Customer',age:34,insuranceType:'DZO',insurer:'Uniqa',saleDate:'2026-09-04'}))});

@@ -25,6 +25,7 @@ that update automatically when new records are added.
 - Generate a professional, tenant-protected PDF policy from the latest policy data
 - Run tenant-scoped ETL jobs with filters, quality checks, metrics, and execution history
 - Export anonymized policy, payment, claim, quality, and analysis-ready CSV datasets
+- Track currency-safe insurance KPIs for premium collection, claims, losses, growth, and cancellations
 - Upload and securely download tenant-protected PDF and image policy documents
 - Review an administrator-only, append-only audit trail of every business mutation
 - Monitor request volume, latency, errors, memory, readiness, and graceful shutdown behavior
@@ -63,10 +64,10 @@ The project intentionally does not use Ruff, ESLint, Prettier enforcement, or a
 maximum-line-length rule. CI evaluates correctness and deployability without
 rejecting the existing compact source-code style.
 
-The separate `Playwright E2E` job runs nine serial Chromium workflows against
+The separate `Playwright E2E` job runs ten serial Chromium workflows against
 an isolated in-memory application server. It covers authentication, role-based
 UI permissions, standard/travel/vehicle policy creation, broker confirmation,
-claim processing, payments, policy PDF download, and analyst ETL/CSV workflows. Failed runs retain an
+claim processing, payments, policy PDF download, analyst ETL/CSV workflows, and the insurance KPI dashboard. Failed runs retain an
 HTML report, screenshots, video, and a Playwright trace as a CI artifact.
 
 Run the browser suite locally with:
@@ -271,6 +272,7 @@ secrets and must not expose the database directly.
 | POST | `/api/insurers` | Create an insurance company |
 | GET | `/api/search?q=query` | Search clients by name |
 | GET | `/api/analytics` | Return the dashboard analytics data |
+| GET | `/api/analytics/kpis` | Return currency-separated insurance and financial KPIs |
 | GET | `/api/exports/insurance-market-share.xlsx` | Download the current tenant's Excel market-share report |
 | GET | `/api/etl/runs` | List the tenant's latest ETL executions for analysts and administrators |
 | POST | `/api/etl/runs` | Run the filtered extraction, transformation, and quality-check pipeline |
@@ -297,6 +299,22 @@ Each customer receives a stable tenant-specific HMAC pseudonym such as
 names, JMBG values, passport numbers, or claim descriptions. ETL access is
 restricted to `analyst` and `admin`; every query and export remains tenant
 isolated.
+
+## Insurance KPI Dashboard
+
+The analytics area exposes insurance-specific business measures rather than
+only record counts. For each currency it calculates written, collected, and
+outstanding premium; collection rate; average premium; claim exposure;
+estimated loss ratio; claim frequency and severity; cancellation rate; and
+month-over-month/year-over-year written-premium growth when a valid comparison
+period exists. Monthly premium trends and insurer-level collection/loss ratios
+are visualized with interactive charts.
+
+RSD and EUR are never added together. The selected currency controls every
+financial card and chart, preventing the misleading totals common in portfolio
+dashboards without exchange-rate data. The UI and API explicitly document that
+the available loss ratio is based on estimated claim value divided by written
+premium; it is an analytical proxy, not an accounting incurred-loss ratio.
 
 ## Excel Market-Share Export
 
