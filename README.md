@@ -23,6 +23,8 @@ that update automatically when new records are added.
 - Record premium payments, prevent duplicate references and overpayments, and update policy balances automatically
 - Surface user-specific reminders for expiring policies, premium debt, and aging claims
 - Generate a professional, tenant-protected PDF policy from the latest policy data
+- Run tenant-scoped ETL jobs with filters, quality checks, metrics, and execution history
+- Export anonymized policy, payment, claim, quality, and analysis-ready CSV datasets
 - Upload and securely download tenant-protected PDF and image policy documents
 - Review an administrator-only, append-only audit trail of every business mutation
 - Monitor request volume, latency, errors, memory, readiness, and graceful shutdown behavior
@@ -61,10 +63,10 @@ The project intentionally does not use Ruff, ESLint, Prettier enforcement, or a
 maximum-line-length rule. CI evaluates correctness and deployability without
 rejecting the existing compact source-code style.
 
-The separate `Playwright E2E` job runs eight serial Chromium workflows against
+The separate `Playwright E2E` job runs nine serial Chromium workflows against
 an isolated in-memory application server. It covers authentication, role-based
 UI permissions, standard/travel/vehicle policy creation, broker confirmation,
-claim processing, partial-to-full premium payment, and policy PDF download. Failed runs retain an
+claim processing, payments, policy PDF download, and analyst ETL/CSV workflows. Failed runs retain an
 HTML report, screenshots, video, and a Playwright trace as a CI artifact.
 
 Run the browser suite locally with:
@@ -105,6 +107,7 @@ Document collections:
 - `notification_dismissals`
 - `policy_documents`
 - `business_audit`
+- `etl_runs`
 
 Edge collections:
 
@@ -269,6 +272,31 @@ secrets and must not expose the database directly.
 | GET | `/api/search?q=query` | Search clients by name |
 | GET | `/api/analytics` | Return the dashboard analytics data |
 | GET | `/api/exports/insurance-market-share.xlsx` | Download the current tenant's Excel market-share report |
+| GET | `/api/etl/runs` | List the tenant's latest ETL executions for analysts and administrators |
+| POST | `/api/etl/runs` | Run the filtered extraction, transformation, and quality-check pipeline |
+| GET | `/api/etl/exports/:dataset` | Export one of five analysis-ready CSV datasets |
+
+## Data Analytics and ETL Studio
+
+Analysts and administrators have a dedicated ETL workspace with date, insurance
+type, insurer, and policy-status filters. Every run extracts tenant data from
+policy, payment, and claim collections; validates data quality; transforms the
+operational records into a denormalized analytical model; records execution
+metrics; and writes an auditable ETL run to `etl_runs`.
+
+The downloadable datasets are `policies.csv`, `payments.csv`, `claims.csv`,
+`analytics-dataset.csv`, and `etl-quality-report.csv`. The combined analytical
+dataset derives age bands, year, month, quarter, policy duration, paid and
+remaining premium, claim counts, open-claim counts, and total estimated claim
+value. UTF-8 BOM output works cleanly in Excel, while CSV formula-injection
+protection makes exported values safer to open in spreadsheet applications.
+
+Direct identifiers and free-text fields are excluded from analytical exports.
+Each customer receives a stable tenant-specific HMAC pseudonym such as
+`CUST-7A19...`, allowing records to be joined across datasets without exporting
+names, JMBG values, passport numbers, or claim descriptions. ETL access is
+restricted to `analyst` and `admin`; every query and export remains tenant
+isolated.
 
 ## Excel Market-Share Export
 
