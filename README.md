@@ -48,6 +48,8 @@ that update automatically when new records are added.
 - Sign in securely with role-based permissions for administrators, agents, and analysts
 - Record successful and failed login attempts for administrator review
 - Isolate every client, insurer, policy, graph edge, audit record, and analytic by company tenant
+- Deploy a read-only public portfolio demo behind automatic HTTPS without exposing databases
+- Apply security headers, origin restrictions, login rate limiting, health checks, and backup tooling
 
 ## Technology Stack
 
@@ -60,6 +62,7 @@ that update automatically when new records are added.
 - **Portfolio analysis:** Python, pandas, seaborn, matplotlib, and Jupyter
 - **Business intelligence:** Power BI semantic model, Power Query, and DAX
 - **Infrastructure:** Docker and Docker Compose
+- **VPS edge:** Caddy reverse proxy with automatic TLS
 
 ## Continuous Integration
 
@@ -177,7 +180,7 @@ values.
 - [Git](https://git-scm.com/)
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 
-Clone the repository and start both services:
+Clone the repository and start the application, ArangoDB, and PostgreSQL services:
 
 ```powershell
 git clone https://github.com/ToroRossoLGD/kotva-nosql-insurance.git
@@ -206,6 +209,33 @@ Database:                 kotva
 Administrators can manage clients and insurance companies and review the login
 audit. Agents can view data and create clients. Analysts have read-only access
 to clients, search, and analytics.
+
+### Role-based demo walkthrough
+
+**Analyst (`analyst`)**
+
+1. Open **Analitika** and switch currencies to inspect premium, collection,
+   claims, loss-ratio, growth, insurer, product, age, and seasonality charts.
+2. Open **ETL studio**, apply optional filters, run ETL locally, and download
+   anonymized policy, payment, claim, combined analytics, or quality CSV data.
+3. Review completeness, validity, uniqueness, referential integrity, freshness,
+   issue distribution, and historical quality trend.
+4. Load PostgreSQL locally and inspect fact/dimension counts. Public VPS demo
+   mode disables this mutation while keeping warehouse status visible.
+
+**Agent (`agent`)**
+
+1. Create standard, travel, or vehicle policies and observe conditional fields.
+2. Confirm vehicle data as broker, register claims and payments, upload a policy
+   document, and download the generated PDF policy.
+3. Review notifications. Agents cannot manage insurers or security analytics.
+
+**Administrator (`admin`)**
+
+1. Perform every agent workflow and add insurance companies.
+2. Review login attempts, business audit events, runtime metrics, and health.
+3. Keep this credential private on a public deployment; only the analyst demo
+   account is intended for portfolio visitors.
 
 The Kotva accounts belong to the `Kotva Insurance` tenant, while `adria-admin`
 belongs to the independent `Adria Brokers` tenant. The tenant identity comes
@@ -257,6 +287,10 @@ the variables shown in `.env.example`.
 The credentials committed to this repository are intended only for a local
 demonstration environment. A production deployment should use securely managed
 secrets and must not expose the database directly.
+
+For public VPS deployment with automatic HTTPS, private database networking,
+read-only demo mode, backups, updates, and a LinkedIn launch checklist, follow
+[`DEPLOYMENT.md`](./DEPLOYMENT.md).
 
 ## REST API
 
@@ -581,7 +615,9 @@ presentation plan.
 
 ## Project Scope
 
-This is a portfolio and educational project. Before production use, the system
-would require application-level authentication and authorization, TLS, managed
-secrets, rate limiting, automated tests, monitoring, regular backups, and a
-stricter database access policy.
+This is a portfolio and educational project. It includes authentication,
+authorization, HTTPS-ready proxy configuration, rate limiting, security
+headers, automated tests, health checks, and backup tooling. A commercial
+production deployment would additionally require managed secrets, off-site
+tested restores, centralized monitoring, dependency patching, an external
+object store, formal privacy controls, and an operational incident process.

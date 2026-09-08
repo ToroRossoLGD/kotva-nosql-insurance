@@ -80,9 +80,11 @@ function applyPermissions(user){
   document.querySelectorAll('[data-write]').forEach(element=>element.hidden=!canWrite);
   document.querySelectorAll('[data-admin]').forEach(element=>element.hidden=!isAdmin);
   document.querySelectorAll('[data-etl]').forEach(element=>element.hidden=!canUseEtl);
+  $('#etl-form button[type="submit"]').disabled=Boolean(user.demoReadOnly);
   $('.forms').classList.toggle('single',!isAdmin);
   $('#user-name').textContent=user.displayName;$('#user-role').textContent=`${user.tenantName} · ${user.role}`;
   $('#login-screen').hidden=true;$('#app-shell').hidden=false;
+  if(user.demoReadOnly&&!$('#demo-banner')){const banner=document.createElement('div');banner.id='demo-banner';banner.className='demo-banner';banner.textContent='PUBLIC DEMO · Read-only analyst access · Data changes are disabled';document.querySelector('main').prepend(banner)}
 }
 async function loadLoginAttempts(){
   if(currentUser?.role!=='admin')return;
@@ -100,9 +102,9 @@ $('#login-form').addEventListener('submit',async event=>{
 });
 $('#logout-button').addEventListener('click',async()=>{try{await api('/api/auth/logout',{method:'POST'})}finally{showLogin()}});
 function ensureWarehousePanel(){if($('#warehouse-panel'))return;const panel=document.createElement('div');panel.id='warehouse-panel';panel.className='panel warehouse-panel';panel.innerHTML='<div class="warehouse-heading"><div><p class="eyebrow">OLAP data warehouse</p><h3>PostgreSQL star schema</h3><p>Učitaj tenant podatke iz ArangoDB-a u dimenzije i fact tabele spremne za Power BI.</p></div><span id="warehouse-status" class="badge">Provera...</span></div><div id="warehouse-counts" class="warehouse-counts"></div><div class="warehouse-actions"><button id="warehouse-load" class="primary" type="button">Učitaj warehouse</button><span id="warehouse-message"></span></div><div class="warehouse-model"><code>dim_date</code><code>dim_customer</code><code>dim_insurer</code><code>dim_insurance_type</code><b>→ fact_policies / payments / claims</b></div>';document.querySelector('.quality-heading').before(panel);$('#warehouse-load').addEventListener('click',loadWarehouse)}
-function warehouseStatus(data){ensureWarehousePanel();const badge=$('#warehouse-status'),button=$('#warehouse-load');badge.textContent=data.configured&&data.connected?'POVEZAN':'NIJE KONFIGURISAN';badge.className=`badge ${data.connected?'warehouse-ok':'warehouse-off'}`;button.disabled=!data.configured;$('#warehouse-counts').innerHTML=[['Police',data.policies||0],['Uplate',data.payments||0],['Štete',data.claims||0],['Poslednje učitavanje',data.last_loaded_at?new Date(data.last_loaded_at).toLocaleString('sr-RS'):'—']].map(item=>`<article><span>${item[0]}</span><strong>${item[1]}</strong></article>`).join('')}
+function warehouseStatus(data){ensureWarehousePanel();const badge=$('#warehouse-status'),button=$('#warehouse-load');badge.textContent=data.configured&&data.connected?'POVEZAN':'NIJE KONFIGURISAN';badge.className=`badge ${data.connected?'warehouse-ok':'warehouse-off'}`;button.disabled=!data.configured||Boolean(currentUser?.demoReadOnly);$('#warehouse-counts').innerHTML=[['Police',data.policies||0],['Uplate',data.payments||0],['Štete',data.claims||0],['Poslednje učitavanje',data.last_loaded_at?new Date(data.last_loaded_at).toLocaleString('sr-RS'):'—']].map(item=>`<article><span>${item[0]}</span><strong>${item[1]}</strong></article>`).join('')}
 async function loadWarehouse(){const button=$('#warehouse-load');button.disabled=true;try{const result=await api('/api/warehouse/load',{method:'POST'});message('#warehouse-message',`Učitano: ${result.rows.policies} polisa, ${result.rows.payments} uplata i ${result.rows.claims} šteta.`);warehouseStatus(await api('/api/warehouse/status'))}catch(error){message('#warehouse-message',error.message,true)}finally{button.disabled=!$('#warehouse-status').classList.contains('warehouse-ok')}}
 async function bootstrap(){
-  try{const response=await fetch('/api/auth/me');if(!response.ok)return showLogin();const result=await response.json();await enterApplication(result.user)}catch(error){showLogin()}
+  try{const config=await fetch('/api/public-config').then(response=>response.json()),hint=document.querySelector('.login-card small');if(config.publicDemo&&config.credentials)hint.textContent=`Public read-only demo: ${config.credentials.username} / ${config.credentials.password}`;const response=await fetch('/api/auth/me');if(!response.ok)return showLogin();const result=await response.json();await enterApplication(result.user)}catch(error){showLogin()}
 }
 bootstrap();

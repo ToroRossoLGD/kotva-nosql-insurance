@@ -42,7 +42,9 @@ jobs:
         run: npm test
 
       - name: Validate Docker Compose configuration
-        run: docker compose config --quiet
+        run: |
+          docker compose config --quiet
+          docker compose --env-file .env.production.example -f docker-compose.prod.yml config --quiet
 
   e2e:
     name: Playwright E2E

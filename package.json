@@ -7,7 +7,7 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "check": "node --check server.js && node --check warehouse.js && node --check public/app.js",
-    "test": "node --test test/auth.test.js test/powerbi.test.js",
+    "test": "node --test test/auth.test.js test/powerbi.test.js test/demo-mode.test.js",
     "test:e2e": "playwright test"
   },
   "keywords": [
@@ -27,6 +27,8 @@
     "dotenv": "^17.4.2",
     "exceljs": "^4.4.0",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.3.0",
     "pdfkit": "^0.17.2",
