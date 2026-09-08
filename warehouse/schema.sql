@@ -129,3 +129,21 @@ JOIN dim_insurer i ON i.insurer_key = pt.insurer_key
 LEFT JOIN payment_totals pay ON pay.tenant_id = pt.tenant_id AND pay.insurer_key = pt.insurer_key AND pay.currency = pt.currency
 LEFT JOIN claim_totals cl ON cl.tenant_id = pt.tenant_id AND cl.insurer_key = pt.insurer_key AND cl.currency = pt.currency;
 
+CREATE OR REPLACE VIEW bi_policy_performance AS
+SELECT p.policy_key, p.tenant_id, p.policy_number, p.customer_key, p.insurer_key,
+       p.insurance_type_key, p.sale_date_key, p.premium, p.currency,
+       p.policy_status, p.payment_status,
+       COALESCE(pay.collected_premium, 0) AS collected_premium,
+       p.premium - COALESCE(pay.collected_premium, 0) AS outstanding_premium,
+       COALESCE(cl.claim_count, 0) AS claim_count,
+       COALESCE(cl.estimated_claims, 0) AS estimated_claims
+FROM fact_policies p
+LEFT JOIN (
+  SELECT policy_key, SUM(amount) AS collected_premium
+  FROM fact_payments GROUP BY policy_key
+) pay ON pay.policy_key = p.policy_key
+LEFT JOIN (
+  SELECT policy_key, COUNT(*) AS claim_count, SUM(estimated_amount) AS estimated_claims
+  FROM fact_claims GROUP BY policy_key
+) cl ON cl.policy_key = p.policy_key;
+

@@ -26,6 +26,7 @@ that update automatically when new records are added.
 - Run tenant-scoped ETL jobs with filters, quality checks, metrics, and execution history
 - Export anonymized policy, payment, claim, quality, and analysis-ready CSV datasets
 - Load tenant-isolated, pseudonymized analytics into a PostgreSQL star-schema warehouse
+- Version a Power BI semantic model with a star schema, reusable DAX measures, and branded theme
 - Track currency-safe insurance KPIs for premium collection, claims, losses, growth, and cancellations
 - Monitor completeness, validity, uniqueness, referential integrity, freshness, and ETL quality trends
 - Explore a reproducible pandas/seaborn Jupyter case study with committed charts and business recommendations
@@ -56,6 +57,7 @@ that update automatically when new records are added.
 - **Frontend:** HTML, CSS, and JavaScript
 - **Charts:** Chart.js
 - **Portfolio analysis:** Python, pandas, seaborn, matplotlib, and Jupyter
+- **Business intelligence:** Power BI semantic model, Power Query, and DAX
 - **Infrastructure:** Docker and Docker Compose
 
 ## Continuous Integration
@@ -339,6 +341,21 @@ The schema is created automatically from `warehouse/schema.sql`. Docker exposes
 it on port `5433` with database/user `kotva_warehouse`/`kotva`; the local demo
 password is configurable through `WAREHOUSE_PASSWORD` and must be replaced
 outside demonstration use.
+
+## Power BI Analytics Model
+
+The [Power BI starter project](powerbi/README.md) connects directly to the
+PostgreSQL warehouse and versions the semantic layer as text instead of
+committing an opaque binary report. Its model defines the Date, Customer,
+Insurer, Insurance Type, and Policies tables, four star-schema relationships,
+parameterized Power Query sources, and thirteen reusable DAX measures.
+
+The supplied theme matches the web dashboard. A dedicated
+`bi_policy_performance` SQL view provides a policy-level analytical grain with
+collected and outstanding premium plus claim exposure. Automated tests validate
+the model structure, required measures, JSON assets, and absence of direct
+personal identifiers. Suggested Executive Overview, Insurer Performance, and
+Portfolio Trends pages are documented for reproducible report construction.
 
 ## Insurance KPI Dashboard
 

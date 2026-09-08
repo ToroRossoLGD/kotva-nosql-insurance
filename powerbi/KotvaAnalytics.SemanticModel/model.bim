@@ -1,0 +1,99 @@
+{
+  "name": "KotvaAnalytics",
+  "compatibilityLevel": 1550,
+  "model": {
+    "culture": "en-US",
+    "defaultPowerBIDataSourceVersion": "powerBI_V3",
+    "dataAccessOptions": {"legacyRedirects": true, "returnErrorValuesAsNull": true},
+    "expressions": [
+      {"name": "PostgreSQLServer", "kind": "m", "expression": "\"localhost:5433\""},
+      {"name": "PostgreSQLDatabase", "kind": "m", "expression": "\"kotva_warehouse\""},
+      {"name": "TenantId", "kind": "m", "expression": "\"kotva-insurance\""}
+    ],
+    "tables": [
+      {
+        "name": "Date",
+        "columns": [
+          {"name":"Date Key","dataType":"int64","sourceColumn":"date_key","isHidden":true},
+          {"name":"Date","dataType":"dateTime","sourceColumn":"full_date","formatString":"dd.MM.yyyy"},
+          {"name":"Year","dataType":"int64","sourceColumn":"calendar_year"},
+          {"name":"Quarter","dataType":"int64","sourceColumn":"calendar_quarter"},
+          {"name":"Month Number","dataType":"int64","sourceColumn":"calendar_month","isHidden":true},
+          {"name":"Month","dataType":"string","sourceColumn":"month_name","sortByColumn":"Month Number"}
+        ],
+        "partitions":[{"name":"Date","mode":"import","source":{"type":"m","expression":["let","    Source = PostgreSQL.Database(PostgreSQLServer, PostgreSQLDatabase),","    Policies = Source{[Schema=\"public\",Item=\"bi_policy_performance\"]}[Data],","    TenantPolicies = Table.SelectRows(Policies, each [tenant_id] = TenantId),","    Data = Source{[Schema=\"public\",Item=\"dim_date\"]}[Data],","    Filtered = Table.SelectRows(Data, each List.Contains(TenantPolicies[sale_date_key], [date_key]))","in","    Filtered"]}}]
+      },
+      {
+        "name":"Customer",
+        "columns":[
+          {"name":"Customer Key","dataType":"int64","sourceColumn":"customer_key","isHidden":true},
+          {"name":"Tenant","dataType":"string","sourceColumn":"tenant_id","isHidden":true},
+          {"name":"Customer ID","dataType":"string","sourceColumn":"customer_id"},
+          {"name":"Age","dataType":"int64","sourceColumn":"age"},
+          {"name":"Age Group","dataType":"string","sourceColumn":"age_group"}
+        ],
+        "partitions":[{"name":"Customer","mode":"import","source":{"type":"m","expression":["let","    Source = PostgreSQL.Database(PostgreSQLServer, PostgreSQLDatabase),","    Data = Source{[Schema=\"public\",Item=\"dim_customer\"]}[Data],","    Filtered = Table.SelectRows(Data, each [tenant_id] = TenantId)","in","    Filtered"]}}]
+      },
+      {
+        "name":"Insurer",
+        "columns":[
+          {"name":"Insurer Key","dataType":"int64","sourceColumn":"insurer_key","isHidden":true},
+          {"name":"Tenant","dataType":"string","sourceColumn":"tenant_id","isHidden":true},
+          {"name":"Insurer","dataType":"string","sourceColumn":"insurer_name"}
+        ],
+        "partitions":[{"name":"Insurer","mode":"import","source":{"type":"m","expression":["let","    Source = PostgreSQL.Database(PostgreSQLServer, PostgreSQLDatabase),","    Data = Source{[Schema=\"public\",Item=\"dim_insurer\"]}[Data],","    Filtered = Table.SelectRows(Data, each [tenant_id] = TenantId)","in","    Filtered"]}}]
+      },
+      {
+        "name":"Insurance Type",
+        "columns":[
+          {"name":"Insurance Type Key","dataType":"int64","sourceColumn":"insurance_type_key","isHidden":true},
+          {"name":"Tenant","dataType":"string","sourceColumn":"tenant_id","isHidden":true},
+          {"name":"Insurance Type","dataType":"string","sourceColumn":"insurance_type"}
+        ],
+        "partitions":[{"name":"Insurance Type","mode":"import","source":{"type":"m","expression":["let","    Source = PostgreSQL.Database(PostgreSQLServer, PostgreSQLDatabase),","    Data = Source{[Schema=\"public\",Item=\"dim_insurance_type\"]}[Data],","    Filtered = Table.SelectRows(Data, each [tenant_id] = TenantId)","in","    Filtered"]}}]
+      },
+      {
+        "name":"Policies",
+        "columns":[
+          {"name":"Policy Key","dataType":"int64","sourceColumn":"policy_key","isHidden":true},
+          {"name":"Tenant","dataType":"string","sourceColumn":"tenant_id","isHidden":true},
+          {"name":"Policy Number","dataType":"string","sourceColumn":"policy_number"},
+          {"name":"Customer Key","dataType":"int64","sourceColumn":"customer_key","isHidden":true},
+          {"name":"Insurer Key","dataType":"int64","sourceColumn":"insurer_key","isHidden":true},
+          {"name":"Insurance Type Key","dataType":"int64","sourceColumn":"insurance_type_key","isHidden":true},
+          {"name":"Sale Date Key","dataType":"int64","sourceColumn":"sale_date_key","isHidden":true},
+          {"name":"Premium","dataType":"decimal","sourceColumn":"premium","formatString":"#,0.00"},
+          {"name":"Collected Premium","dataType":"decimal","sourceColumn":"collected_premium","formatString":"#,0.00"},
+          {"name":"Outstanding Premium","dataType":"decimal","sourceColumn":"outstanding_premium","formatString":"#,0.00"},
+          {"name":"Estimated Claims","dataType":"decimal","sourceColumn":"estimated_claims","formatString":"#,0.00"},
+          {"name":"Claim Count","dataType":"int64","sourceColumn":"claim_count"},
+          {"name":"Currency","dataType":"string","sourceColumn":"currency"},
+          {"name":"Policy Status","dataType":"string","sourceColumn":"policy_status"},
+          {"name":"Payment Status","dataType":"string","sourceColumn":"payment_status"}
+        ],
+        "measures":[
+          {"name":"Policy Count","expression":"DISTINCTCOUNT(Policies[Policy Key])","formatString":"#,0"},
+          {"name":"Written Premium","expression":"SUM(Policies[Premium])","formatString":"#,0.00"},
+          {"name":"Collected Premium","expression":"SUM(Policies[Collected Premium])","formatString":"#,0.00"},
+          {"name":"Outstanding Premium","expression":"SUM(Policies[Outstanding Premium])","formatString":"#,0.00"},
+          {"name":"Collection Rate","expression":"DIVIDE([Collected Premium], [Written Premium])","formatString":"0.0%"},
+          {"name":"Average Premium","expression":"DIVIDE([Written Premium], [Policy Count])","formatString":"#,0.00"},
+          {"name":"Claim Exposure","expression":"SUM(Policies[Estimated Claims])","formatString":"#,0.00"},
+          {"name":"Claim Count","expression":"SUM(Policies[Claim Count])","formatString":"#,0"},
+          {"name":"Estimated Loss Ratio","expression":"DIVIDE([Claim Exposure], [Written Premium])","formatString":"0.0%"},
+          {"name":"Claim Frequency","expression":"DIVIDE([Claim Count], [Policy Count])","formatString":"0.0%"},
+          {"name":"Cancellation Rate","expression":"DIVIDE(CALCULATE([Policy Count], Policies[Policy Status] = \"Otkazana\"), [Policy Count])","formatString":"0.0%"},
+          {"name":"Previous Month Premium","expression":"CALCULATE([Written Premium], DATEADD('Date'[Date], -1, MONTH))","formatString":"#,0.00"},
+          {"name":"MoM Premium Growth","expression":"DIVIDE([Written Premium] - [Previous Month Premium], [Previous Month Premium])","formatString":"0.0%"}
+        ],
+        "partitions":[{"name":"Policies","mode":"import","source":{"type":"m","expression":["let","    Source = PostgreSQL.Database(PostgreSQLServer, PostgreSQLDatabase),","    Data = Source{[Schema=\"public\",Item=\"bi_policy_performance\"]}[Data],","    Filtered = Table.SelectRows(Data, each [tenant_id] = TenantId)","in","    Filtered"]}}]
+      }
+    ],
+    "relationships":[
+      {"name":"Policy Date","fromTable":"Policies","fromColumn":"Sale Date Key","toTable":"Date","toColumn":"Date Key"},
+      {"name":"Policy Customer","fromTable":"Policies","fromColumn":"Customer Key","toTable":"Customer","toColumn":"Customer Key"},
+      {"name":"Policy Insurer","fromTable":"Policies","fromColumn":"Insurer Key","toTable":"Insurer","toColumn":"Insurer Key"},
+      {"name":"Policy Type","fromTable":"Policies","fromColumn":"Insurance Type Key","toTable":"Insurance Type","toColumn":"Insurance Type Key"}
+    ]
+  }
+}
