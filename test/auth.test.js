@@ -36,6 +36,8 @@ function withPolicy(data,overrides={}){
 test('health endpoint remains public',async()=>{
   const{response,body}=await request('/api/health');
   assert.equal(response.status,200);assert.equal(body.status,'ok');assert.match(response.headers.get('x-request-id'),/^[0-9a-f-]{36}$/);
+  assert.equal(response.headers.get('x-content-type-options'),'nosniff');assert.ok(response.headers.get('x-frame-options'));
+  const config=await request('/api/public-config');assert.equal(config.response.status,200);assert.deepEqual(config.body,{publicDemo:false,credentials:null});
 });
 
 test('liveness, readiness, and runtime metrics support production monitoring',async()=>{

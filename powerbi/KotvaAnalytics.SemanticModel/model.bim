@@ -8,7 +8,7 @@
     "expressions": [
       {"name": "PostgreSQLServer", "kind": "m", "expression": "\"localhost:5433\""},
       {"name": "PostgreSQLDatabase", "kind": "m", "expression": "\"kotva_warehouse\""},
-      {"name": "TenantId", "kind": "m", "expression": "\"kotva-insurance\""}
+      {"name": "TenantId", "kind": "m", "expression": "\"tenant-kotva\""}
     ],
     "tables": [
       {

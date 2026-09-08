@@ -1,0 +1,92 @@
+services:
+  arangodb:
+    image: arangodb:3.12
+    restart: unless-stopped
+    environment:
+      ARANGO_ROOT_PASSWORD: ${ARANGO_PASSWORD:?Set ARANGO_PASSWORD}
+    volumes:
+      - arango_data:/var/lib/arangodb3
+    healthcheck:
+      test: ["CMD-SHELL", "arangosh --server.endpoint tcp://127.0.0.1:8529 --server.username root --server.password \"$$ARANGO_ROOT_PASSWORD\" --javascript.execute-string \"db._version()\" >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  warehouse:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: kotva_warehouse
+      POSTGRES_USER: kotva
+      POSTGRES_PASSWORD: ${WAREHOUSE_PASSWORD:?Set WAREHOUSE_PASSWORD}
+    volumes:
+      - warehouse_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      USE_ARANGO: "true"
+      ARANGO_URL: http://arangodb:8529
+      ARANGO_DB: kotva
+      ARANGO_USER: root
+      ARANGO_PASSWORD: ${ARANGO_PASSWORD:?Set ARANGO_PASSWORD}
+      WAREHOUSE_HOST: warehouse
+      WAREHOUSE_DB_PORT: 5432
+      WAREHOUSE_DATABASE: kotva_warehouse
+      WAREHOUSE_USER: kotva
+      WAREHOUSE_PASSWORD: ${WAREHOUSE_PASSWORD:?Set WAREHOUSE_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD}
+      AGENT_PASSWORD: ${AGENT_PASSWORD:?Set AGENT_PASSWORD}
+      ANALYST_PASSWORD: ${ANALYST_PASSWORD:?Set ANALYST_PASSWORD}
+      ADRIA_ADMIN_PASSWORD: ${ADRIA_ADMIN_PASSWORD:?Set ADRIA_ADMIN_PASSWORD}
+      PUBLIC_DEMO: ${PUBLIC_DEMO:-true}
+      ALLOWED_ORIGIN: https://${DOMAIN:?Set DOMAIN}
+      TRUST_PROXY: "1"
+      LOGIN_RATE_LIMIT: ${LOGIN_RATE_LIMIT:-20}
+      REQUEST_LOGGING: "true"
+      UPLOAD_DIR: /app/uploads
+    volumes:
+      - document_uploads:/app/uploads
+    depends_on:
+      arangodb: {condition: service_healthy}
+      warehouse: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    stop_grace_period: 15s
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app: {condition: service_healthy}
+
+volumes:
+  arango_data:
+  warehouse_data:
+  document_uploads:
+  caddy_data:
+  caddy_config:

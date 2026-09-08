@@ -18,7 +18,7 @@ relationships, reusable DAX measures, and a Kotva report theme.
 The server and database names are model parameters named `PostgreSQLServer`
 and `PostgreSQLDatabase`, so they can be changed without editing every query.
 Set the `TenantId` parameter before refresh; every imported table is filtered
-to that tenant (the default is `kotva-insurance`). Publish separate semantic
+to that tenant (the default is `tenant-kotva`). Publish separate semantic
 models per customer and manage database credentials through the Power BI
 gateway rather than embedding them in project files.
 The default storage mode is Import for responsive visuals.

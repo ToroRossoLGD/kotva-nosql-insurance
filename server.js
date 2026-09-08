@@ -1,7 +1,8 @@
-const express=require('express');const path=require('path');const fs=require('fs');const crypto=require('crypto');const cors=require('cors');const bcrypt=require('bcryptjs');const jwt=require('jsonwebtoken');const multer=require('multer');const ExcelJS=require('exceljs');const PDFDocument=require('pdfkit');const warehouse=require('./warehouse');const{Database,aql}=require('arangojs');require('dotenv').config();
+const express=require('express');const path=require('path');const fs=require('fs');const crypto=require('crypto');const cors=require('cors');const helmet=require('helmet');const{rateLimit}=require('express-rate-limit');const bcrypt=require('bcryptjs');const jwt=require('jsonwebtoken');const multer=require('multer');const ExcelJS=require('exceljs');const PDFDocument=require('pdfkit');const warehouse=require('./warehouse');const{Database,aql}=require('arangojs');require('dotenv').config();
 const app=express(),PORT=+process.env.PORT||3000,DB_NAME=process.env.ARANGO_DB||'kotva';
 const JWT_SECRET=process.env.JWT_SECRET||'kotva-local-demo-secret-change-before-production';
 const TOKEN_TTL_SECONDS=8*60*60;
+const PUBLIC_DEMO=process.env.PUBLIC_DEMO==='true',ALLOWED_ORIGIN=String(process.env.ALLOWED_ORIGIN||'').replace(/\/$/,'');
 const startedAt=Date.now(),databaseRequired=process.env.USE_ARANGO==='true',runtimeMetrics={requests:0,clientErrors:0,serverErrors:0,totalDurationMs:0,maxDurationMs:0,statusCodes:{},methods:{}};
 const UPLOAD_DIR=path.resolve(process.env.UPLOAD_DIR||path.join(__dirname,'uploads'));fs.mkdirSync(UPLOAD_DIR,{recursive:true});
 const DEFAULT_TENANT_ID='tenant-kotva';
@@ -350,7 +351,7 @@ function cookieValue(req,name){
   const match=cookies.find(value=>value.startsWith(`${name}=`));
   return match?decodeURIComponent(match.slice(name.length+1)):'';
 }
-function publicUser(user){return{id:user.id,tenantId:user.tenantId,tenantName:user.tenantName,username:user.username,displayName:user.displayName,role:user.role}}
+function publicUser(user){return{id:user.id,tenantId:user.tenantId,tenantName:user.tenantName,username:user.username,displayName:user.displayName,role:user.role,demoReadOnly:PUBLIC_DEMO&&user.role==='analyst'}}
 async function findUser(username){
   const normalized=String(username||'').trim().toLowerCase();
   if(mode!=='arango')return memoryUsers.find(user=>user.username===normalized);
@@ -375,12 +376,16 @@ function authenticate(req,res,next){
   try{req.user=jwt.verify(token,JWT_SECRET);next()}catch(error){return res.status(401).json({message:'Your session has expired. Please sign in again.'})}
 }
 const authorize=(...roles)=>(req,res,next)=>roles.includes(req.user.role)?next():res.status(403).json({message:'You do not have permission to perform this action.'});
+const rejectDemoMutation=(req,res,next)=>PUBLIC_DEMO&&req.user.role==='analyst'?res.status(403).json({message:'Public demo is read-only. Sign in with a private operator account to run this action.'}):next();
+if(process.env.TRUST_PROXY)app.set('trust proxy',Number(process.env.TRUST_PROXY)||process.env.TRUST_PROXY);
 app.use((req,res,next)=>{const requestId=crypto.randomUUID(),started=process.hrtime.bigint();req.requestId=requestId;res.setHeader('X-Request-Id',requestId);res.on('finish',()=>{const durationMs=Number(process.hrtime.bigint()-started)/1e6;runtimeMetrics.requests++;runtimeMetrics.totalDurationMs+=durationMs;runtimeMetrics.maxDurationMs=Math.max(runtimeMetrics.maxDurationMs,durationMs);runtimeMetrics.statusCodes[res.statusCode]=(runtimeMetrics.statusCodes[res.statusCode]||0)+1;runtimeMetrics.methods[req.method]=(runtimeMetrics.methods[req.method]||0)+1;if(res.statusCode>=500)runtimeMetrics.serverErrors++;else if(res.statusCode>=400)runtimeMetrics.clientErrors++;if(process.env.REQUEST_LOGGING==='true')console.log(JSON.stringify({type:'http_request',requestId,method:req.method,path:req.path,status:res.statusCode,durationMs:+durationMs.toFixed(2),timestamp:new Date().toISOString()}))});next()});
-app.use(cors());app.use(express.json({limit:'50kb'}));app.use(express.static(path.join(__dirname,'public')));
+app.use(helmet({contentSecurityPolicy:{directives:{defaultSrc:["'self'"],scriptSrc:["'self'",'https://cdn.jsdelivr.net'],styleSrc:["'self'","'unsafe-inline'",'https://fonts.googleapis.com'],fontSrc:["'self'",'https://fonts.gstatic.com','data:'],imgSrc:["'self'",'data:','blob:'],connectSrc:["'self'"],objectSrc:["'none'"],frameAncestors:["'none'"]}},crossOriginEmbedderPolicy:false}));app.use(cors({origin:ALLOWED_ORIGIN||true,credentials:true}));app.use(express.json({limit:'50kb'}));app.use(express.static(path.join(__dirname,'public'),{maxAge:process.env.NODE_ENV==='production'?'1h':0}));
 app.get('/api/health',(q,r)=>r.json({status:'ok',database:mode,databaseName:DB_NAME}));
 app.get('/api/health/live',(q,r)=>r.json({status:'alive',uptimeSeconds:Math.floor((Date.now()-startedAt)/1000)}));
 app.get('/api/health/ready',async(q,r)=>{let databaseReady=mode==='arango'||!databaseRequired;if(mode==='arango')try{await db.query(aql`RETURN 1`)}catch(error){databaseReady=false}r.status(databaseReady?200:503).json({status:databaseReady?'ready':'not_ready',database:mode,databaseRequired,databaseReady})});
-app.post('/api/auth/login',async(req,res,next)=>{try{
+app.get('/api/public-config',(req,res)=>res.json({publicDemo:PUBLIC_DEMO,credentials:PUBLIC_DEMO?{username:'analyst',password:process.env.ANALYST_PASSWORD||'Analyst123!'}:null}));
+const loginLimiter=rateLimit({windowMs:15*60*1000,limit:Number(process.env.LOGIN_RATE_LIMIT)||20,skipSuccessfulRequests:true,standardHeaders:'draft-8',legacyHeaders:false,message:{message:'Too many login attempts from this address. Try again in 15 minutes.'}});
+app.post('/api/auth/login',loginLimiter,async(req,res,next)=>{try{
   const username=String(req.body.username||'').trim().toLowerCase(),password=String(req.body.password||'');
   if(!username||!password)return res.status(400).json({message:'Username and password are required.'});
   const user=await findUser(username);
@@ -394,6 +399,7 @@ app.post('/api/auth/login',async(req,res,next)=>{try{
 app.post('/api/auth/logout',(req,res)=>{res.clearCookie('kotva_session',{httpOnly:true,sameSite:'strict',secure:process.env.NODE_ENV==='production',path:'/'});res.status(204).end()});
 app.get('/api/auth/me',authenticate,(req,res)=>res.json({user:req.user}));
 app.use('/api',authenticate);
+app.use(['/api/etl/runs','/api/warehouse/load'],(req,res,next)=>req.method==='POST'?rejectDemoMutation(req,res,next):next());
 app.get('/api/auth/login-attempts',authorize('admin'),async(req,res,next)=>{try{
   if(mode!=='arango')return res.json(memoryLoginAttempts.filter(item=>item.tenantId===req.user.tenantId).reverse().slice(0,100));
   const cursor=await db.query(aql`FOR attempt IN login_attempts FILTER attempt.tenantId==${req.user.tenantId} SORT attempt.timestamp DESC LIMIT 100 RETURN UNSET(attempt,"_key","_id","_rev")`);res.json(await cursor.all());

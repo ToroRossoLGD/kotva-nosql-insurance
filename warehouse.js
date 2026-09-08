@@ -3,7 +3,7 @@ const path=require('node:path');
 const{Pool}=require('pg');
 
 let pool=null,initialized=false;
-const warehouseUrl=()=>process.env.WAREHOUSE_URL||'';
+const warehouseConfig=()=>process.env.WAREHOUSE_URL?{connectionString:process.env.WAREHOUSE_URL}:process.env.WAREHOUSE_HOST?{host:process.env.WAREHOUSE_HOST,port:Number(process.env.WAREHOUSE_DB_PORT)||5432,database:process.env.WAREHOUSE_DATABASE||'kotva_warehouse',user:process.env.WAREHOUSE_USER||'kotva',password:process.env.WAREHOUSE_PASSWORD}:null;
 
 function disabledError(){const error=new Error('PostgreSQL analytics warehouse nije konfigurisan.');error.status=503;return error}
 function dateParts(value){
@@ -12,8 +12,8 @@ function dateParts(value){
   return{key:year*10000+month*100+day,value,year,quarter:Math.ceil(month/3),month,monthName:new Intl.DateTimeFormat('en-US',{month:'long',timeZone:'UTC'}).format(date),day};
 }
 async function initializeWarehouse(){
-  const connectionString=warehouseUrl();if(!connectionString)return false;if(initialized)return true;
-  pool=new Pool({connectionString,max:5,idleTimeoutMillis:30000,connectionTimeoutMillis:5000});
+  const connection=warehouseConfig();if(!connection)return false;if(initialized)return true;
+  pool=new Pool({...connection,max:5,idleTimeoutMillis:30000,connectionTimeoutMillis:5000});
   const schema=fs.readFileSync(path.join(__dirname,'warehouse','schema.sql'),'utf8');await pool.query(schema);initialized=true;return true;
 }
 async function ensureDate(client,value){const date=dateParts(value);await client.query('INSERT INTO dim_date(date_key,full_date,calendar_year,calendar_quarter,calendar_month,month_name,day_of_month) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(date_key) DO NOTHING',[date.key,date.value,date.year,date.quarter,date.month,date.monthName,date.day]);return date.key}
@@ -22,7 +22,7 @@ async function dimensionKey(client,table,keyColumn,tenantId,naturalColumn,natura
   const result=await client.query(`INSERT INTO ${table}(${columns.join(',')}) VALUES(${placeholders}) ON CONFLICT(tenant_id,${naturalColumn}) DO UPDATE SET ${updates} RETURNING ${keyColumn}`,values);return result.rows[0][keyColumn];
 }
 async function loadWarehouse({tenantId,user,clients,payments,claims,pseudonymize}){
-  if(!warehouseUrl())throw disabledError();await initializeWarehouse();const connection=await pool.connect(),started=Date.now(),loadId=`warehouse-${Date.now()}-${Math.random().toString(16).slice(2,8)}`;
+  if(!warehouseConfig())throw disabledError();await initializeWarehouse();const connection=await pool.connect(),started=Date.now(),loadId=`warehouse-${Date.now()}-${Math.random().toString(16).slice(2,8)}`;
   try{
     await connection.query('BEGIN');const policyKeys=new Map();let policyRows=0,paymentRows=0,claimRows=0;
     for(const policy of clients){
@@ -35,11 +35,11 @@ async function loadWarehouse({tenantId,user,clients,payments,claims,pseudonymize
   }catch(error){await connection.query('ROLLBACK');throw error}finally{connection.release()}
 }
 async function warehouseStatus(tenantId){
-  if(!warehouseUrl())return{configured:false,connected:false};await initializeWarehouse();const result=await pool.query("SELECT (SELECT COUNT(*)::int FROM fact_policies WHERE tenant_id=$1) AS policies,(SELECT COUNT(*)::int FROM fact_payments WHERE tenant_id=$1) AS payments,(SELECT COUNT(*)::int FROM fact_claims WHERE tenant_id=$1) AS claims,(SELECT MAX(completed_at) FROM warehouse_loads WHERE tenant_id=$1 AND status='completed') AS last_loaded_at",[tenantId]);return{configured:true,connected:true,...result.rows[0]};
+  if(!warehouseConfig())return{configured:false,connected:false};await initializeWarehouse();const result=await pool.query("SELECT (SELECT COUNT(*)::int FROM fact_policies WHERE tenant_id=$1) AS policies,(SELECT COUNT(*)::int FROM fact_payments WHERE tenant_id=$1) AS payments,(SELECT COUNT(*)::int FROM fact_claims WHERE tenant_id=$1) AS claims,(SELECT MAX(completed_at) FROM warehouse_loads WHERE tenant_id=$1 AND status='completed') AS last_loaded_at",[tenantId]);return{configured:true,connected:true,...result.rows[0]};
 }
 async function warehouseReport(tenantId,report){
-  if(!warehouseUrl())throw disabledError();await initializeWarehouse();const reports={monthly:"SELECT calendar_year,calendar_quarter,calendar_month,currency,policy_count::int,written_premium::float8 FROM vw_monthly_portfolio WHERE tenant_id=$1 ORDER BY calendar_year,calendar_month,currency",insurers:"SELECT insurer_name,currency,policy_count::int,written_premium::float8,collected_premium::float8,claim_count::int,estimated_claims::float8,collection_rate::float8,estimated_loss_ratio::float8 FROM vw_insurer_performance WHERE tenant_id=$1 ORDER BY currency,written_premium DESC"};if(!reports[report]){const error=new Error('Warehouse izveštaj nije pronađen.');error.status=404;throw error}return(await pool.query(reports[report],[tenantId])).rows;
+  if(!warehouseConfig())throw disabledError();await initializeWarehouse();const reports={monthly:"SELECT calendar_year,calendar_quarter,calendar_month,currency,policy_count::int,written_premium::float8 FROM vw_monthly_portfolio WHERE tenant_id=$1 ORDER BY calendar_year,calendar_month,currency",insurers:"SELECT insurer_name,currency,policy_count::int,written_premium::float8,collected_premium::float8,claim_count::int,estimated_claims::float8,collection_rate::float8,estimated_loss_ratio::float8 FROM vw_insurer_performance WHERE tenant_id=$1 ORDER BY currency,written_premium DESC"};if(!reports[report]){const error=new Error('Warehouse izveštaj nije pronađen.');error.status=404;throw error}return(await pool.query(reports[report],[tenantId])).rows;
 }
 async function closeWarehouse(){if(pool)await pool.end()}
 
-module.exports={initializeWarehouse,loadWarehouse,warehouseStatus,warehouseReport,closeWarehouse,isConfigured:()=>Boolean(warehouseUrl())};
+module.exports={initializeWarehouse,loadWarehouse,warehouseStatus,warehouseReport,closeWarehouse,isConfigured:()=>Boolean(warehouseConfig())};
