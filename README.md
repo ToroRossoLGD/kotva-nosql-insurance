@@ -27,6 +27,7 @@ that update automatically when new records are added.
 - Export anonymized policy, payment, claim, quality, and analysis-ready CSV datasets
 - Load tenant-isolated, pseudonymized analytics into a PostgreSQL star-schema warehouse
 - Version a Power BI semantic model with a star schema, reusable DAX measures, and branded theme
+- Provide an executable SQL analytics case study with window functions, segmentation, and reconciliation
 - Track currency-safe insurance KPIs for premium collection, claims, losses, growth, and cancellations
 - Monitor completeness, validity, uniqueness, referential integrity, freshness, and ETL quality trends
 - Explore a reproducible pandas/seaborn Jupyter case study with committed charts and business recommendations
@@ -387,6 +388,19 @@ metrics. Those immutable snapshots drive a historical score chart, turning the
 ETL log into a basic data-observability layer rather than showing only the
 current state. Quality calculations and history remain restricted to analysts
 and administrators and isolated by tenant.
+
+## SQL Analytics Case Study
+
+The executable [SQL case study](warehouse/case-study/README.md) answers ten
+portfolio questions against the warehouse. It demonstrates CTEs, dimensional
+joins, `LAG`, `DENSE_RANK`, cumulative window functions, customer segmentation,
+Pareto analysis, HHI concentration, safe KPI division, and reconciliation.
+
+A deterministic two-tenant fixture makes the work reproducible. A dedicated
+GitHub Actions job starts PostgreSQL 16, builds the complete warehouse, loads
+the fixture, executes every query with `ON_ERROR_STOP`, and verifies tenant
+counts and control totals. Financial results remain separated by currency and
+Q10 returns only reconciliation exceptions, so a successful run returns none.
 
 ## Jupyter Portfolio Case Study
 
