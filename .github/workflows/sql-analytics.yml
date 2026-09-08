@@ -1,0 +1,47 @@
+name: SQL Analytics
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "warehouse/**"
+      - ".github/workflows/sql-analytics.yml"
+  push:
+    branches: [main]
+    paths:
+      - "warehouse/**"
+      - ".github/workflows/sql-analytics.yml"
+  workflow_dispatch:
+
+jobs:
+  postgres-case-study:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: kotva_warehouse
+          POSTGRES_USER: kotva
+          POSTGRES_PASSWORD: test-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U kotva -d kotva_warehouse"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      PGPASSWORD: test-password
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create warehouse schema
+        run: psql -h 127.0.0.1 -U kotva -d kotva_warehouse -v ON_ERROR_STOP=1 -f warehouse/schema.sql
+      - name: Load deterministic fixture
+        run: psql -h 127.0.0.1 -U kotva -d kotva_warehouse -v ON_ERROR_STOP=1 -f warehouse/case-study/fixtures.sql
+      - name: Execute all analytics queries
+        run: psql -h 127.0.0.1 -U kotva -d kotva_warehouse -v ON_ERROR_STOP=1 -f warehouse/case-study/queries.sql
+      - name: Verify tenant isolation and reconciliation
+        run: |
+          test "$(psql -h 127.0.0.1 -U kotva -d kotva_warehouse -Atc "SELECT COUNT(*) FROM bi_policy_performance WHERE tenant_id='kotva-insurance'")" = "3"
+          test "$(psql -h 127.0.0.1 -U kotva -d kotva_warehouse -Atc "SELECT COUNT(*) FROM bi_policy_performance WHERE tenant_id='adria-brokers'")" = "1"
+          test "$(psql -h 127.0.0.1 -U kotva -d kotva_warehouse -Atc "SELECT SUM(premium)-600 FROM bi_policy_performance WHERE tenant_id='kotva-insurance'")" = "0.00"
