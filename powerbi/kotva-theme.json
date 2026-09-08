@@ -1,0 +1,8 @@
+{
+  "name": "Kotva Insurance",
+  "dataColors": ["#FF6B35", "#112F4A", "#39A88E", "#F2B84B", "#7B6EE6", "#E85D75"],
+  "background": "#F5F7F8",
+  "foreground": "#112F4A",
+  "tableAccent": "#FF6B35",
+  "visualStyles": {"*":{"*":[{"fontFamily":"Segoe UI","color":{"solid":{"color":"#112F4A"}}}]}}
+}
