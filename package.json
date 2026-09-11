@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "check": "node --check server.js && node --check warehouse.js && node --check public/app.js",
+    "check": "node --check server.js && node --check warehouse.js && node --check public/app.js && node --check public/i18n.js",
     "test": "node --test test/auth.test.js test/powerbi.test.js test/demo-mode.test.js",
     "test:e2e": "playwright test"
   },

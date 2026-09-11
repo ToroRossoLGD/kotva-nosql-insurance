@@ -13,6 +13,7 @@ that update automatically when new records are added.
 
 ## Features
 
+- Choose Serbian or English in the top-right corner before or after signing in; the browser remembers the choice and switching preserves form input.
 - Create clients with personal and insurance information
 - Add new insurance companies dynamically
 - Store policy sale dates and insurance categories
