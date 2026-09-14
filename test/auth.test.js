@@ -65,6 +65,25 @@ test('analyst has read-only access',async()=>{
   assert.equal((await request('/api/clients',{method:'POST',headers:{cookie:analyst.cookie,'content-type':'application/json'},body:'{}'})).response.status,403);
 });
 
+test('administrators manage tenant users and temporary-password lifecycle securely',async()=>{
+  const admin=await login('admin','Admin123!'),agent=await login('agent','Agent123!');
+  const denied=await request('/api/users',{headers:{cookie:agent.cookie}});assert.equal(denied.response.status,403);
+  const created=await request('/api/users',{method:'POST',headers:{cookie:admin.cookie,'content-type':'application/json'},body:JSON.stringify({username:'managed.broker',displayName:'Managed Broker',role:'broker'})});
+  assert.equal(created.response.status,201);assert.equal(created.body.user.role,'broker');assert.equal(created.body.user.mustChangePassword,true);assert.ok(created.body.temporaryPassword.length>=12);assert.equal(created.body.user.passwordHash,undefined);
+  const duplicate=await request('/api/users',{method:'POST',headers:{cookie:admin.cookie,'content-type':'application/json'},body:JSON.stringify({username:'managed.broker',displayName:'Duplicate User',role:'agent',temporaryPassword:'Temporary123!'})});assert.equal(duplicate.response.status,409);
+  const listed=await request('/api/users',{headers:{cookie:admin.cookie}});assert.ok(listed.body.some(user=>user.id===created.body.user.id));assert.ok(!JSON.stringify(listed.body).includes('passwordHash'));
+  const adria=await login('adria-admin','Adria123!'),adriaUsers=await request('/api/users',{headers:{cookie:adria.cookie}});assert.ok(!adriaUsers.body.some(user=>user.id===created.body.user.id));
+  const roleUpdated=await request(`/api/users/${created.body.user.id}/role`,{method:'PATCH',headers:{cookie:admin.cookie,'content-type':'application/json'},body:JSON.stringify({role:'agent'})});assert.equal(roleUpdated.response.status,200);assert.equal(roleUpdated.body.user.role,'agent');
+  const firstLogin=await login('managed.broker',created.body.temporaryPassword);assert.equal(firstLogin.response.status,200);assert.equal(firstLogin.body.user.mustChangePassword,true);
+  const blocked=await request('/api/clients',{headers:{cookie:firstLogin.cookie}});assert.equal(blocked.response.status,403);assert.match(blocked.body.message,/change your temporary password/i);
+  const wrongCurrent=await request('/api/auth/change-password',{method:'POST',headers:{cookie:firstLogin.cookie,'content-type':'application/json'},body:JSON.stringify({currentPassword:'WrongPassword1!',newPassword:'Permanent123!'})});assert.equal(wrongCurrent.response.status,400);
+  const changed=await request('/api/auth/change-password',{method:'POST',headers:{cookie:firstLogin.cookie,'content-type':'application/json'},body:JSON.stringify({currentPassword:created.body.temporaryPassword,newPassword:'Permanent123!'})});assert.equal(changed.response.status,200);assert.equal(changed.body.user.mustChangePassword,false);const permanentCookie=changed.response.headers.get('set-cookie').split(';')[0];assert.equal((await request('/api/clients',{headers:{cookie:permanentCookie}})).response.status,200);
+  assert.equal((await login('managed.broker',created.body.temporaryPassword)).response.status,401);
+  const deactivated=await request(`/api/users/${created.body.user.id}/status`,{method:'PATCH',headers:{cookie:admin.cookie,'content-type':'application/json'},body:JSON.stringify({active:false})});assert.equal(deactivated.response.status,200);assert.equal(deactivated.body.user.active,false);assert.equal((await request('/api/clients',{headers:{cookie:permanentCookie}})).response.status,401);assert.equal((await login('managed.broker','Permanent123!')).response.status,401);
+  await request(`/api/users/${created.body.user.id}/status`,{method:'PATCH',headers:{cookie:admin.cookie,'content-type':'application/json'},body:JSON.stringify({active:true})});const activeLogin=await login('managed.broker','Permanent123!');assert.equal(activeLogin.response.status,200);
+  const reset=await request(`/api/users/${created.body.user.id}/reset-password`,{method:'POST',headers:{cookie:admin.cookie}});assert.equal(reset.response.status,200);assert.equal(reset.body.user.mustChangePassword,true);assert.ok(reset.body.temporaryPassword.length>=12);assert.equal((await request('/api/clients',{headers:{cookie:activeLogin.cookie}})).response.status,401);assert.equal((await login('managed.broker',reset.body.temporaryPassword)).response.status,200);
+});
+
 test('analytics warehouse endpoints are role protected and report disabled state',async()=>{
   const anonymous=await request('/api/warehouse/status');assert.equal(anonymous.response.status,401);
   const agent=await login('agent','Agent123!');assert.equal((await request('/api/warehouse/status',{headers:{cookie:agent.cookie}})).response.status,403);

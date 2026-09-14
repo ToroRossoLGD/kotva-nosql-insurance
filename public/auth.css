@@ -18,3 +18,4 @@
 .heading-actions{display:flex;align-items:center;gap:10px}.heading-actions .secondary{padding:9px 13px;font-size:11px}
 @media(max-width:800px){.sidebar-bottom{margin-left:auto}.sidebar-bottom .db-card{display:none}.user-card{padding:8px 10px}}
 .demo-banner{position:sticky;top:0;z-index:20;margin:-18px -26px 24px;padding:10px 24px;background:#fff3cd;border-bottom:1px solid #ead17a;color:#6d5700;font-size:12px;font-weight:800;letter-spacing:.05em;text-align:center}
+#user-management{margin-top:54px}.user-table{margin-top:14px}.user-table select{min-width:105px;padding:8px}.user-actions{display:flex;gap:7px;flex-wrap:wrap}.user-actions button{padding:8px 10px;font-size:10px}.user-actions button:disabled,.user-table select:disabled{opacity:.55;cursor:not-allowed}#user-message{max-width:620px;color:var(--green);font-size:12px;font-weight:700;overflow-wrap:anywhere}#user-message.error{color:#d94841}#password-screen .login-card>p{line-height:1.55}
