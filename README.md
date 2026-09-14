@@ -1,61 +1,53 @@
-# Kotva — NoSQL Insurance Management System
+# Kotva — Multi-Tenant Insurance & Analytics Platform
 
 [![CI](https://github.com/ToroRossoLGD/kotva-nosql-insurance/actions/workflows/ci.yml/badge.svg)](https://github.com/ToroRossoLGD/kotva-nosql-insurance/actions/workflows/ci.yml)
+[![Analytics](https://github.com/ToroRossoLGD/kotva-nosql-insurance/actions/workflows/analytics.yml/badge.svg)](https://github.com/ToroRossoLGD/kotva-nosql-insurance/actions/workflows/analytics.yml)
+[![Live demo](https://img.shields.io/badge/live-demo.kotva2.com-ff6b35)](https://demo.kotva2.com)
+![Node.js 22](https://img.shields.io/badge/Node.js-22-339933?logo=nodedotjs&logoColor=white)
+![ArangoDB 3.12](https://img.shields.io/badge/ArangoDB-3.12-DDE072?logo=arangodb&logoColor=black)
+[![License: ISC](https://img.shields.io/badge/license-ISC-blue.svg)](LICENSE)
 
-Kotva is a full-stack insurance management application built as a portfolio and
-functioning project. It demonstrates how ArangoDB can be used as a multi-model
-NoSQL database for documents, relationships, search, indexing, and business
-analytics.
+Kotva is a production-oriented insurance operations and analytics application.
+It combines an ArangoDB multi-model transactional system with a PostgreSQL star
+schema, reproducible ETL pipelines, business intelligence assets, and a secure
+multi-tenant web application.
 
-The application manages clients, insurance policies, and insurance companies.
-Its responsive dashboard visualizes the stored data through interactive charts
-that update automatically when new records are added.
+**[Open the live demo](https://demo.kotva2.com)** ·
+**[Deployment guide](DEPLOYMENT.md)** ·
+**[Analytics case study](warehouse/case-study/README.md)** ·
+**[Power BI model](powerbi/README.md)**
 
-## Features
+> The public portfolio environment is read-only and contains synthetic data.
+> Demo credentials are displayed on its sign-in page.
 
-- Choose Serbian or English in the top-right corner before or after signing in; the browser remembers the choice and switching preserves form input.
-- Create clients with personal and insurance information
-- Add new insurance companies dynamically
-- Store policy sale dates and insurance categories
-- Require JMBG, passport number, and destination for every new travel-insurance client
-- Capture vehicle make, engine capacity, vehicle category, and passenger-car body type for auto insurance
-- Track extensible broker approval metadata for vehicle insurance
-- Register and process policy-linked claims with role-based status changes and audit history
-- Record premium payments, prevent duplicate references and overpayments, and update policy balances automatically
-- Surface user-specific reminders for expiring policies, premium debt, and aging claims
-- Generate a professional, tenant-protected PDF policy from the latest policy data
-- Open a dedicated Policy 360° page combining coverage, customer, balances, claims, payments, documents, and chronological history
-- Renew policies with new numbers and coverage terms while preserving immutable prior-version snapshots and a complete renewal chain
-- Run tenant-scoped ETL jobs with filters, quality checks, metrics, and execution history
-- Export anonymized policy, payment, claim, quality, and analysis-ready CSV datasets
-- Load tenant-isolated, pseudonymized analytics into a PostgreSQL star-schema warehouse
-- Version a Power BI semantic model with a star schema, reusable DAX measures, and branded theme
-- Provide an executable SQL analytics case study with window functions, segmentation, and reconciliation
-- Track currency-safe insurance KPIs for premium collection, claims, losses, growth, and cancellations
-- Monitor completeness, validity, uniqueness, referential integrity, freshness, and ETL quality trends
-- Explore a reproducible pandas/seaborn Jupyter case study with committed charts and business recommendations
-- Upload and securely download tenant-protected PDF and image policy documents
-- Review an administrator-only, append-only audit trail of every business mutation
-- Monitor request volume, latency, errors, memory, readiness, and graceful shutdown behavior
-- Export a tenant-specific Excel market-share report for travel, auto, property, and DZO insurance
-- Display recently added clients in a responsive table
-- Search names regardless of letter case and diacritics
-- Automatically update statistics and charts after data entry
-- Analyze travel-policy sales by month and by day in July
-- Compare average client age across insurance types
-- Display the market share of every insurance company
-- Automatically include newly added companies in the market-share chart
-- Model relationships using ArangoDB named graphs and edge collections
-- Validate incoming data through the REST API
-- Persist database data in a Docker volume
-- Sign in securely with role-based permissions for administrators, agents, brokers, and analysts
-- Manage tenant-scoped user accounts, roles, activation, and password resets from the administrator dashboard
-- Require newly created users to replace their one-time temporary password at first sign-in
-- Revoke existing sessions immediately after role, status, or password changes
-- Record successful and failed login attempts for administrator review
-- Isolate every client, insurer, policy, graph edge, audit record, and analytic by company tenant
-- Deploy a read-only public portfolio demo behind automatic HTTPS without exposing databases
-- Apply security headers, origin restrictions, login rate limiting, health checks, and backup tooling
+![Kotva Policy 360 page](docs/assets/policy-360.png)
+
+## What this project demonstrates
+
+| Area | Implemented capabilities |
+| --- | --- |
+| Insurance operations | Travel and vehicle underwriting fields, broker approval, claims, payments, renewals, documents, PDF policies, reminders, and Policy 360° |
+| Analytics engineering | Tenant-scoped ETL, data-quality checks, anonymized CSV exports, a PostgreSQL star schema, KPI definitions, SQL analysis, Jupyter, and Power BI assets |
+| SaaS and security | Tenant isolation, role-based access, session revocation, password lifecycle, audit trails, rate limiting, security headers, and a read-only portfolio mode |
+| Delivery and reliability | Docker Compose, Caddy TLS, health/readiness endpoints, backups, CI, API tests, and 19 Playwright browser workflows |
+
+## Three-minute portfolio walkthrough
+
+1. Open the [live demo](https://demo.kotva2.com) and use the credentials shown on the sign-in page.
+2. Review the operational overview, dynamic charts, ETL Studio, KPI dashboard, and data-quality dashboard.
+3. Open a client and select **Detalji / Details** to inspect its Policy 360° view, balances, claims, documents, and version history.
+4. Explore the committed [SQL case study](warehouse/case-study/README.md), [notebook](analytics/README.md), and [Power BI semantic model](powerbi/README.md).
+
+The application is bilingual (Serbian and English). The browser remembers the
+selected language, and switching languages preserves unfinished form input.
+
+## Feature map
+
+- **Policy lifecycle:** client and insurer management, dynamic policy fields, renewals with immutable snapshots, claims, payments, PDF generation, and secure document storage.
+- **Operational insight:** interactive market-share, age, monthly-sales, and July travel-policy charts plus searchable client and policy views.
+- **Data platform:** repeatable ETL runs, quality history, analysis-ready exports, warehouse loading, reconciled KPIs, SQL, pandas, and Power BI deliverables.
+- **Access control:** administrator, agent, broker, and analyst roles with tenant-scoped data, managed users, login history, and append-only business auditing.
+- **Production operations:** automatic HTTPS, restricted database exposure, graceful shutdown, observability, backups, and a safe read-only public demo.
 
 ## Technology Stack
 
@@ -81,7 +73,7 @@ The project intentionally does not use Ruff, ESLint, Prettier enforcement, or a
 maximum-line-length rule. CI evaluates correctness and deployability without
 rejecting the existing compact source-code style.
 
-The separate `Playwright E2E` job runs twelve serial Chromium workflows against
+The separate `Playwright E2E` job runs 19 serial Chromium workflows against
 an isolated in-memory application server. It covers authentication, role-based
 UI permissions, standard/travel/vehicle policy creation, broker confirmation,
 claim processing, payments, policy PDF download, ETL/CSV workflows, insurance KPIs, and the Data Quality dashboard. Failed runs retain an
@@ -110,6 +102,19 @@ ArangoDB is used for several NoSQL concepts in the same project:
 - persistent indexes for filtering and sorting;
 - an inverted index, analyzer, and SearchAlias view for name search;
 - AQL queries for aggregation and analytics.
+
+### Repository map
+
+| Path | Purpose |
+| --- | --- |
+| `server.js` | REST API, authentication, operational workflows, and ArangoDB access |
+| `public/` | Responsive bilingual application, Policy 360°, and analytics dashboards |
+| `warehouse.js` and `warehouse/` | PostgreSQL star-schema loader and executable SQL case study |
+| `analytics/` | Reproducible notebook, data dictionary, charts, and analyst documentation |
+| `powerbi/` | Versioned Power Query, DAX measures, theme, and semantic-model guide |
+| `test/` | Node.js API and integration coverage |
+| `e2e/` | Playwright browser workflows for critical user journeys |
+| `ops/` and `docker-compose*.yml` | VPS deployment, proxy, backup, and container configuration |
 
 ## Data Model
 
@@ -639,6 +644,10 @@ A detailed project report is included in
 written in Serbian and covers the implementation, AQL examples, indexes, graph
 traversal, complexity analysis, scaling, security considerations, and a project
 presentation plan.
+
+Project collaboration and disclosure guidance is available in
+[`CONTRIBUTING.md`](CONTRIBUTING.md) and [`SECURITY.md`](SECURITY.md). The source
+is distributed under the [`ISC License`](LICENSE).
 
 ## Project Scope
 
