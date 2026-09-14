@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="sr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Kotva — detalji polise</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="auth.css">
+  <link rel="stylesheet" href="policy-detail.css">
+  <script src="i18n.js" defer></script>
+  <script src="policy-detail.js" defer></script>
+</head>
+<body>
+  <main class="policy-page">
+    <header class="policy-topbar">
+      <a class="back-link" href="/#clients">← Nazad na korisnike</a>
+      <div class="language-picker" data-language-picker><select aria-label="Jezik"><option value="sr" lang="sr">Srpski</option><option value="en" lang="en">English</option></select></div>
+    </header>
+    <div id="policy-loading" class="panel policy-loading">Učitavanje detalja polise…</div>
+    <div id="policy-error" class="panel policy-error" hidden></div>
+    <div id="policy-content" hidden>
+      <section class="policy-hero panel">
+        <div><p class="eyebrow">Policy 360°</p><h1 id="policy-number"></h1><p id="policy-owner" class="subtitle"></p></div>
+        <div class="policy-hero-actions"><span id="policy-status" class="policy-status"></span><a id="policy-pdf" class="primary" href="#">Preuzmi PDF</a></div>
+      </section>
+      <section id="policy-summary" class="policy-summary"></section>
+      <section class="policy-grid">
+        <article class="panel"><div class="section-title"><div><p class="eyebrow">Coverage</p><h2>Podaci o polisi</h2></div></div><dl id="policy-fields" class="detail-list"></dl></article>
+        <article class="panel"><div class="section-title"><div><p class="eyebrow">Policyholder</p><h2>Osiguranik</h2></div></div><dl id="client-fields" class="detail-list"></dl></article>
+      </section>
+      <section id="policy-actions" class="panel policy-actions" hidden><div class="section-title"><div><p class="eyebrow">Operations</p><h2>Akcije na polisi</h2></div></div><div class="action-row"><label>Status polise<select id="detail-policy-status"></select></label><label>Status plaćanja<select id="detail-payment-status"></select></label><button id="save-policy-status" class="primary" type="button">Sačuvaj statuse</button><button id="confirm-broker" class="secondary" type="button" hidden>Potvrdi broker</button></div><span id="detail-action-message"></span></section>
+      <section class="detail-columns">
+        <article class="panel"><div class="section-title"><div><p class="eyebrow">Claims</p><h2>Štete</h2></div><span id="detail-claim-count" class="badge"></span></div><div class="table-wrap"><table><thead><tr><th>Broj</th><th>Datum</th><th>Status</th><th>Iznos</th></tr></thead><tbody id="detail-claims"></tbody></table></div></article>
+        <article class="panel"><div class="section-title"><div><p class="eyebrow">Payments</p><h2>Uplate</h2></div><span id="detail-payment-count" class="badge"></span></div><div class="table-wrap"><table><thead><tr><th>Potvrda</th><th>Datum</th><th>Način</th><th>Iznos</th></tr></thead><tbody id="detail-payments"></tbody></table></div></article>
+      </section>
+      <section class="panel"><div class="section-title"><div><p class="eyebrow">Documents</p><h2>Dokumenti</h2></div><span id="detail-document-count" class="badge"></span></div><div id="detail-documents" class="document-cards"></div></section>
+      <section class="panel"><div class="section-title"><div><p class="eyebrow">Audit timeline</p><h2>Istorija polise</h2></div></div><div id="policy-timeline" class="policy-timeline"></div></section>
+    </div>
+  </main>
+</body>
+</html>

@@ -24,6 +24,7 @@ that update automatically when new records are added.
 - Record premium payments, prevent duplicate references and overpayments, and update policy balances automatically
 - Surface user-specific reminders for expiring policies, premium debt, and aging claims
 - Generate a professional, tenant-protected PDF policy from the latest policy data
+- Open a dedicated Policy 360° page combining coverage, customer, balances, claims, payments, documents, and chronological history
 - Run tenant-scoped ETL jobs with filters, quality checks, metrics, and execution history
 - Export anonymized policy, payment, claim, quality, and analysis-ready CSV datasets
 - Load tenant-isolated, pseudonymized analytics into a PostgreSQL star-schema warehouse
@@ -317,6 +318,7 @@ read-only demo mode, backups, updates, and a LinkedIn launch checklist, follow
 | GET | `/api/config` | Return the supported insurance types |
 | GET | `/api/clients` | List clients |
 | POST | `/api/clients` | Create a client and synchronize graph data |
+| GET | `/api/clients/:id/details` | Return the tenant-safe Policy 360° operational view |
 | GET | `/api/clients/:id/policy.pdf` | Generate and download the latest tenant-protected policy PDF |
 | PATCH | `/api/clients/:id/policy` | Change policy/payment status and append an audit-history entry |
 | POST | `/api/clients/:id/broker-approval` | Confirm auto-insurance vehicle details as an agent or administrator |
