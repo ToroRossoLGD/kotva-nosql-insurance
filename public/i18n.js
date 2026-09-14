@@ -138,6 +138,27 @@ X osa prikazuje godine korisnika, a Y osa broj polisa|The X axis shows client ag
 Vrste osiguranja|Insurance types
 Struktura kompletnog portfolija|Full portfolio breakdown
 Evidencija|Records
+Ponude|Quotes
+Ponude osiguranja|Insurance quotes
+Nova ponuda|New quote
+Pripremite ponudu, evidentirajte odluku klijenta i konvertujte je u polisu.|Prepare a quote, record the client's decision and convert it into a policy.
+Sačuvaj ponudu|Save quote
+Ponuda|Quote
+Klijent|Client
+Pokriće|Coverage
+Akcije|Actions
+Pošalji|Send
+Odbij|Reject
+Prihvati|Accept
+Kreiraj polisu|Create policy
+ponuda|quotes
+Nema ponuda.|No quotes.
+Nacrt|Draft
+Poslata|Sent
+Prihvaćena|Accepted
+Odbijena|Rejected
+Konvertovana|Converted
+Ponuda je sačuvana.|Quote saved.
 Pretraga korisnika|Client search
 Pretraga korisnika i polisa|Client and policy search
 Pretraži po imenu ili prezimenu|Search by first or last name
