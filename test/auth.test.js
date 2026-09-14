@@ -51,6 +51,13 @@ test('protected endpoints reject anonymous requests',async()=>{
   const{response}=await request('/api/clients');assert.equal(response.status,401);
 });
 
+test('client directory supports tenant-safe server pagination, filtering and sorting',async()=>{
+  const analyst=await login('analyst','Analyst123!'),first=await request('/api/clients?page=1&pageSize=5&insuranceType=Putno&sortBy=saleDate&order=desc',{headers:{cookie:analyst.cookie}});assert.equal(first.response.status,200);assert.equal(first.body.items.length,5);assert.equal(first.body.pagination.page,1);assert.equal(first.body.pagination.pageSize,5);assert.ok(first.body.pagination.totalItems>=5);assert.ok(first.body.items.every(item=>item.insuranceType==='Putno'));assert.ok(first.body.items.every((item,index,items)=>index===0||items[index-1].saleDate>=item.saleDate));
+  const searched=await request('/api/clients?page=1&q=legacy-putno-jul-17&sortBy=policyNumber&order=asc',{headers:{cookie:analyst.cookie}});assert.equal(searched.response.status,200);assert.ok(searched.body.items.length>=1);assert.ok(searched.body.items.every(item=>item.policyNumber.toLowerCase().includes('legacy-putno-jul-17')));
+  const dated=await request('/api/clients?page=1&dateFrom=2026-07-17&dateTo=2026-07-17',{headers:{cookie:analyst.cookie}});assert.equal(dated.response.status,200);assert.ok(dated.body.items.every(item=>item.saleDate==='2026-07-17'));
+  const invalid=await request('/api/clients?page=0&pageSize=500&sortBy=tenantId',{headers:{cookie:analyst.cookie}});assert.equal(invalid.response.status,400);
+});
+
 test('invalid credentials are rejected and recorded',async()=>{
   const{response}=await login('admin','wrong-password');assert.equal(response.status,401);
   const admin=await login('admin','Admin123!');

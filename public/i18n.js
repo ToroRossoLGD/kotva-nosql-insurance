@@ -139,7 +139,26 @@ Vrste osiguranja|Insurance types
 Struktura kompletnog portfolija|Full portfolio breakdown
 Evidencija|Records
 Pretraga korisnika|Client search
+Pretraga korisnika i polisa|Client and policy search
 Pretraži po imenu ili prezimenu|Search by first or last name
+Pretraga|Search
+Ime, prezime ili broj polise|Name, surname or policy number
+Svi statusi|All statuses
+Od datuma|From date
+Do datuma|To date
+Sortiranje|Sort by
+Najnovije dodato|Recently added
+Ime korisnika|Client name
+Broj polise|Policy number
+Redosled|Order
+Opadajuće|Descending
+Rastuće|Ascending
+Po stranici|Per page
+Poništi filtere|Clear filters
+Paginacija korisnika|Client pagination
+Prethodna|Previous
+Sledeća|Next
+Stranica|Page
 Korisnik|Client
 Kuća|Insurer
 Detalji osiguranja|Insurance details
