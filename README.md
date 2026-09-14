@@ -25,6 +25,7 @@ that update automatically when new records are added.
 - Surface user-specific reminders for expiring policies, premium debt, and aging claims
 - Generate a professional, tenant-protected PDF policy from the latest policy data
 - Open a dedicated Policy 360° page combining coverage, customer, balances, claims, payments, documents, and chronological history
+- Renew policies with new numbers and coverage terms while preserving immutable prior-version snapshots and a complete renewal chain
 - Run tenant-scoped ETL jobs with filters, quality checks, metrics, and execution history
 - Export anonymized policy, payment, claim, quality, and analysis-ready CSV datasets
 - Load tenant-isolated, pseudonymized analytics into a PostgreSQL star-schema warehouse
@@ -321,6 +322,7 @@ read-only demo mode, backups, updates, and a LinkedIn launch checklist, follow
 | GET | `/api/clients/:id/details` | Return the tenant-safe Policy 360° operational view |
 | GET | `/api/clients/:id/policy.pdf` | Generate and download the latest tenant-protected policy PDF |
 | PATCH | `/api/clients/:id/policy` | Change policy/payment status and append an audit-history entry |
+| POST | `/api/clients/:id/renew` | Archive the current policy version and create its validated successor |
 | POST | `/api/clients/:id/broker-approval` | Confirm auto-insurance vehicle details as an agent or administrator |
 | GET | `/api/claims` | List the current tenant's claims |
 | POST | `/api/claims` | Register a claim against an existing in-force policy |
@@ -493,6 +495,18 @@ Existing demo and database records are upgraded automatically at startup with
 safe legacy values. Attached-document metadata is stored in ArangoDB; production
 binary files can later be placed in object storage while retaining their secure
 reference in the policy document.
+
+### Renewals and version history
+
+Authorized operators can renew a policy from its Policy 360° page. Renewal
+validates non-overlapping coverage dates, the insurer, payment method, currency,
+premium, and insured subject. The previous record is appended to
+`policyVersions` as a complete snapshot and the successor receives a new policy
+number, incremented version, active status, unpaid balance, and a link to the
+prior policy number. Optimistic matching prevents two concurrent renewal
+requests from silently overwriting each other. Historical payments, claims,
+documents, and audit events remain available without contributing to the new
+version's current balance or KPI calculations.
 
 ## Claims Management
 
