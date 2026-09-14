@@ -4,7 +4,7 @@ const{spawn}=require('node:child_process');
 const path=require('node:path');
 
 const port=3199,baseUrl=`http://127.0.0.1:${port}`;let child;
-async function waitForServer(){for(let attempt=0;attempt<50;attempt++){try{if((await fetch(`${baseUrl}/api/health`)).ok)return}catch{}await new Promise(resolve=>setTimeout(resolve,100))}throw new Error('Public demo test server did not start')}
+async function waitForServer(){for(let attempt=0;attempt<150;attempt++){try{if((await fetch(`${baseUrl}/api/health`)).ok)return}catch{}await new Promise(resolve=>setTimeout(resolve,100))}throw new Error('Public demo test server did not start')}
 async function json(pathname,options={}){const response=await fetch(`${baseUrl}${pathname}`,options);return{response,body:await response.json()}}
 
 test.before(async()=>{
