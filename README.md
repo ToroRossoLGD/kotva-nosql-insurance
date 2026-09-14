@@ -46,7 +46,10 @@ that update automatically when new records are added.
 - Model relationships using ArangoDB named graphs and edge collections
 - Validate incoming data through the REST API
 - Persist database data in a Docker volume
-- Sign in securely with role-based permissions for administrators, agents, and analysts
+- Sign in securely with role-based permissions for administrators, agents, brokers, and analysts
+- Manage tenant-scoped user accounts, roles, activation, and password resets from the administrator dashboard
+- Require newly created users to replace their one-time temporary password at first sign-in
+- Revoke existing sessions immediately after role, status, or password changes
 - Record successful and failed login attempts for administrator review
 - Isolate every client, insurer, policy, graph edge, audit record, and analytic by company tenant
 - Deploy a read-only public portfolio demo behind automatic HTTPS without exposing databases
@@ -234,8 +237,9 @@ to clients, search, and analytics.
 **Administrator (`admin`)**
 
 1. Perform every agent workflow and add insurance companies.
-2. Review login attempts, business audit events, runtime metrics, and health.
-3. Keep this credential private on a public deployment; only the analyst demo
+2. Create tenant users, assign roles, activate or deactivate accounts, and issue one-time temporary passwords.
+3. Review login attempts, business audit events, runtime metrics, and health.
+4. Keep this credential private on a public deployment; only the analyst demo
    account is intended for portfolio visitors.
 
 The Kotva accounts belong to the `Kotva Insurance` tenant, while `adria-admin`
@@ -304,6 +308,12 @@ read-only demo mode, backups, updates, and a LinkedIn launch checklist, follow
 | POST | `/api/auth/logout` | Clear the current session |
 | GET | `/api/auth/me` | Return the signed-in user |
 | GET | `/api/auth/login-attempts` | Return the login audit for administrators |
+| POST | `/api/auth/change-password` | Replace a temporary or existing password and rotate the session |
+| GET | `/api/users` | List password-safe tenant user records for administrators |
+| POST | `/api/users` | Create a tenant user and return its temporary password once |
+| PATCH | `/api/users/:id/status` | Activate or deactivate a user and revoke existing sessions |
+| PATCH | `/api/users/:id/role` | Change a user role and revoke existing sessions |
+| POST | `/api/users/:id/reset-password` | Issue a new temporary password and revoke existing sessions |
 | GET | `/api/config` | Return the supported insurance types |
 | GET | `/api/clients` | List clients |
 | POST | `/api/clients` | Create a client and synchronize graph data |
