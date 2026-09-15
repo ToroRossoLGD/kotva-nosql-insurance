@@ -139,6 +139,32 @@ Vrste osiguranja|Insurance types
 Struktura kompletnog portfolija|Full portfolio breakdown
 Evidencija|Records
 Ponude|Quotes
+CSV import|CSV import
+Masovni uvoz polisa|Bulk policy import
+Uvoz postojećeg portfolija|Existing portfolio import
+Pre upisa proveravamo svaku kolonu, red i duplikat.|Every column, row and duplicate is checked before data is written.
+Preuzmi CSV šablon|Download CSV template
+Izaberite CSV fajl|Select CSV file
+Proveri podatke|Validate data
+Potvrdi uvoz|Confirm import
+Red|Row
+Rezultat|Result
+Izaberite fajl za preview.|Select a file to preview.
+Istorija uvoza|Import history
+Fajl|File
+Uvezeno|Imported
+Pokrenuo|Started by
+ispravnih|valid
+sa greškom|with errors
+CSV je spreman za uvoz.|CSV is ready to import.
+Ispravite označene redove i ponovite preview.|Fix the highlighted rows and preview again.
+Ispravno|Valid
+CSV nema redova za uvoz.|CSV contains no rows to import.
+Izaberite CSV fajl.|Select a CSV file.
+CSV fajl može imati najviše 40 KB.|CSV file cannot exceed 40 KB.
+polisa je uvezeno|policies imported
+Import je uspešno završen.|Import completed successfully.
+Nema izvršenih uvoza.|No imports have been completed.
 Ponude osiguranja|Insurance quotes
 Nova ponuda|New quote
 Pripremite ponudu, evidentirajte odluku klijenta i konvertujte je u polisu.|Prepare a quote, record the client's decision and convert it into a policy.

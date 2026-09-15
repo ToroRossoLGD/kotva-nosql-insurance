@@ -26,10 +26,10 @@ multi-tenant web application.
 
 | Area | Implemented capabilities |
 | --- | --- |
-| Insurance operations | Configurable premium rating, quote-to-policy conversion, travel and vehicle underwriting fields, broker approval, claims, payments, renewals, documents, PDF policies, reminders, and Policy 360° |
+| Insurance operations | Validated CSV portfolio migration, configurable premium rating, quote-to-policy conversion, travel and vehicle underwriting fields, broker approval, claims, payments, renewals, documents, PDF policies, reminders, and Policy 360° |
 | Analytics engineering | Tenant-scoped ETL, data-quality checks, anonymized CSV exports, a PostgreSQL star schema, KPI definitions, SQL analysis, Jupyter, and Power BI assets |
 | SaaS and security | Tenant isolation, role-based access, session revocation, password lifecycle, audit trails, rate limiting, security headers, and a read-only portfolio mode |
-| Delivery and reliability | Docker Compose, Caddy TLS, health/readiness endpoints, backups, CI, API tests, and 22 Playwright browser workflows |
+| Delivery and reliability | Docker Compose, Caddy TLS, health/readiness endpoints, backups, CI, API tests, and 23 Playwright browser workflows |
 
 ## Three-minute portfolio walkthrough
 
@@ -74,7 +74,7 @@ The project intentionally does not use Ruff, ESLint, Prettier enforcement, or a
 maximum-line-length rule. CI evaluates correctness and deployability without
 rejecting the existing compact source-code style.
 
-The separate `Playwright E2E` job runs 22 serial Chromium workflows against
+The separate `Playwright E2E` job runs 23 serial Chromium workflows against
 an isolated in-memory application server. It covers authentication, role-based
 UI permissions, standard/travel/vehicle policy creation, broker confirmation,
 claim processing, payments, policy PDF download, ETL/CSV workflows, insurance KPIs, and the Data Quality dashboard. Failed runs retain an
@@ -124,6 +124,7 @@ Document collections:
 - `clients`
 - `quotes`
 - `rating_rules`
+- `import_runs`
 - `policies`
 - `insurers`
 - `users`
@@ -213,6 +214,7 @@ Local demonstration credentials:
 ```text
 Application administrator: admin / Admin123!
 Insurance agent:          agent / Agent123!
+Insurance broker:         broker / Broker123!
 Read-only analyst:        analyst / Analyst123!
 Second-company admin:     adria-admin / Adria123!
 
@@ -325,8 +327,19 @@ read-only demo mode, backups, updates, and a LinkedIn launch checklist, follow
 | PATCH | `/api/users/:id/role` | Change a user role and revoke existing sessions |
 | POST | `/api/users/:id/reset-password` | Issue a new temporary password and revoke existing sessions |
 | GET | `/api/config` | Return the supported insurance types |
-| GET | `/api/clients` | List clients |
+| GET | `/api/clients` | List clients or return a filtered, sorted page when query parameters are supplied |
 | POST | `/api/clients` | Create a client and synchronize graph data |
+| GET | `/api/quotes` | List tenant insurance quotes and their conversion state |
+| POST | `/api/quotes` | Create a validated insurance quote |
+| PATCH | `/api/quotes/:id/status` | Move a quote through its controlled sales workflow |
+| POST | `/api/quotes/:id/convert` | Convert an accepted quote into a linked policy |
+| POST | `/api/rating/calculate` | Calculate and explain a recommended premium |
+| GET | `/api/rating-rules` | List tenant-specific, versioned pricing rules |
+| PATCH | `/api/rating-rules/:insuranceType` | Update an administrator-controlled pricing rule |
+| GET | `/api/imports/policies/template` | Download the canonical UTF-8 policy-import template |
+| POST | `/api/imports/policies/preview` | Validate a CSV without changing operational data |
+| POST | `/api/imports/policies/commit` | Import an entirely valid, duplicate-safe CSV batch |
+| GET | `/api/imports/policies/runs` | List auditable policy-import executions |
 | GET | `/api/clients/:id/details` | Return the tenant-safe Policy 360° operational view |
 | GET | `/api/clients/:id/policy.pdf` | Generate and download the latest tenant-protected policy PDF |
 | PATCH | `/api/clients/:id/policy` | Change policy/payment status and append an audit-history entry |
