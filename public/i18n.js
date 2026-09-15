@@ -159,6 +159,16 @@ Prihvaćena|Accepted
 Odbijena|Rejected
 Konvertovana|Converted
 Ponuda je sačuvana.|Quote saved.
+Izračunaj preporučenu premiju|Calculate recommended premium
+Pravila obračuna premije|Premium rating rules
+Verzionisana pravila koja koristi pricing engine.|Versioned rules used by the pricing engine.
+Osnovica|Base
+Koeficijent|Multiplier
+Osnovna premija|Base premium
+Minimalna premija|Minimum premium
+Koeficijent ispod 25|Under-25 multiplier
+Koeficijent iznad 60|Over-60 multiplier
+Sačuvaj pravilo|Save rule
 Pretraga korisnika|Client search
 Pretraga korisnika i polisa|Client and policy search
 Pretraži po imenu ili prezimenu|Search by first or last name
