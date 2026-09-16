@@ -18,7 +18,7 @@ multi-tenant web application.
 **[Power BI model](powerbi/README.md)**
 
 > The public portfolio environment is read-only and contains synthetic data.
-> Demo credentials are displayed on its sign-in page.
+> Select **Open demo** on the public landing page. Demo credentials are displayed on the sign-in page.
 
 ![Kotva Policy 360 page](docs/assets/policy-360.png)
 
@@ -29,11 +29,11 @@ multi-tenant web application.
 | Insurance operations | Validated CSV portfolio migration, configurable premium rating, quote-to-policy conversion, travel and vehicle underwriting fields, broker approval, claims, payments, renewals, documents, PDF policies, reminders, and Policy 360° |
 | Analytics engineering | Tenant-scoped ETL, data-quality checks, anonymized CSV exports, a PostgreSQL star schema, KPI definitions, SQL analysis, Jupyter, and Power BI assets |
 | SaaS and security | Tenant isolation, role-based access, session revocation, password lifecycle, audit trails, rate limiting, security headers, and a read-only portfolio mode |
-| Delivery and reliability | Docker Compose, Caddy TLS, health/readiness endpoints, backups, CI, API tests, and 23 Playwright browser workflows |
+| Delivery and reliability | Docker Compose, Caddy TLS, health/readiness endpoints, backups, CI, API tests, and 26 Playwright browser workflows |
 
 ## Three-minute portfolio walkthrough
 
-1. Open the [live demo](https://demo.kotva2.com) and use the credentials shown on the sign-in page.
+1. Open the [public landing page](https://demo.kotva2.com), select **Open demo**, and use the credentials shown on the sign-in page.
 2. Review the operational overview, dynamic charts, ETL Studio, KPI dashboard, and data-quality dashboard.
 3. Open a client and select **Detalji / Details** to inspect its Policy 360° view, balances, claims, documents, and version history.
 4. Explore the committed [SQL case study](warehouse/case-study/README.md), [notebook](analytics/README.md), and [Power BI semantic model](powerbi/README.md).
@@ -74,7 +74,7 @@ The project intentionally does not use Ruff, ESLint, Prettier enforcement, or a
 maximum-line-length rule. CI evaluates correctness and deployability without
 rejecting the existing compact source-code style.
 
-The separate `Playwright E2E` job runs 23 serial Chromium workflows against
+The separate `Playwright E2E` job runs 26 serial Chromium workflows against
 an isolated in-memory application server. It covers authentication, role-based
 UI permissions, standard/travel/vehicle policy creation, broker confirmation,
 claim processing, payments, policy PDF download, ETL/CSV workflows, insurance KPIs, and the Data Quality dashboard. Failed runs retain an

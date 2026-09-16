@@ -2,7 +2,7 @@ const $=selector=>document.querySelector(selector);
 const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,character=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[character]));
 const money=(value,currency)=>`${Number(value||0).toLocaleString(locale(),{maximumFractionDigits:2})} ${currency||'RSD'}`;
 let detail=null,config=null,insurers=[];
-async function api(url,options){const response=await fetch(url,options);if(response.status===401){location.href=`/?returnTo=${encodeURIComponent(location.pathname+location.search)}`;throw Error('Authentication is required.')}const body=response.status===204?null:await response.json();if(!response.ok)throw Error(t(body?.message||'Zahtev nije uspeo.'));return body}
+async function api(url,options){const response=await fetch(url,options);if(response.status===401){location.href=`/app.html?returnTo=${encodeURIComponent(location.pathname+location.search)}`;throw Error('Authentication is required.')}const body=response.status===204?null:await response.json();if(!response.ok)throw Error(t(body?.message||'Zahtev nije uspeo.'));return body}
 function field(label,value){return`<div><dt>${escapeHtml(t(label))}</dt><dd>${escapeHtml(value??'—')}</dd></div>`}
 function actionLabel(item){const labels={created:'Polisa kreirana',policy_updated:'Status polise promenjen',policy_renewed:'Polisa obnovljena',broker_confirmed:'Broker potvrdio vozilo',payment_recorded:'Uplata evidentirana',document_uploaded:'Dokument dodat'};return t(labels[item.action]||item.action.replaceAll('_',' '))}
 function nextDate(value){const date=new Date(`${value}T00:00:00Z`);date.setUTCDate(date.getUTCDate()+1);return date.toISOString().slice(0,10)}
