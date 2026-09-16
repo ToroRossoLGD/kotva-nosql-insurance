@@ -37,3 +37,11 @@ test('landing is usable on a narrow mobile viewport',async({page})=>{
   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth);
   expect(overflow).toBe(false);
 });
+
+test('Kotva landing uses its own navy and coral visual system',async({page})=>{
+  await page.goto('/');
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content','#102b46');
+  await expect(page.locator('.button-primary')).toHaveCSS('background-color','rgb(255, 118, 91)');
+  await expect(page.locator('.feature-card').first()).toHaveCSS('background-color','rgb(16, 43, 70)');
+  await expect(page.locator('.feature-card').nth(1)).toHaveCSS('background-color','rgb(225, 243, 246)');
+});
