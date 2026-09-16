@@ -4,7 +4,7 @@ async function open(page){
   await page.route('https://cdn.jsdelivr.net/**',route=>route.fulfill({contentType:'application/javascript',body:'window.Chart=class{constructor(element,config){this.data=config.data;this.options=config.options}destroy(){}}'}));
   await page.route('https://fonts.googleapis.com/**',route=>route.abort());
   await page.route('https://fonts.gstatic.com/**',route=>route.abort());
-  await page.goto('/');
+  await page.goto('/app.html');
 }
 const picker=page=>page.locator('[data-language-picker] select:visible');
 async function login(page){

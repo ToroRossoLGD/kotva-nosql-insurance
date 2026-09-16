@@ -7,7 +7,7 @@ async function openApp(page){
   await page.route('https://cdn.jsdelivr.net/**',route=>route.fulfill({contentType:'application/javascript',body:'window.Chart=class{destroy(){}}'}));
   await page.route('https://fonts.googleapis.com/**',route=>route.abort());
   await page.route('https://fonts.gstatic.com/**',route=>route.abort());
-  await page.goto('/');
+  await page.goto('/app.html');
 }
 
 async function login(page,username='agent',password='Agent123!'){
