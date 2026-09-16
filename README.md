@@ -29,7 +29,7 @@ multi-tenant web application.
 | Insurance operations | Validated CSV portfolio migration, configurable premium rating, quote-to-policy conversion, travel and vehicle underwriting fields, broker approval, claims, payments, renewals, documents, PDF policies, reminders, and Policy 360° |
 | Analytics engineering | Tenant-scoped ETL, data-quality checks, anonymized CSV exports, a PostgreSQL star schema, KPI definitions, SQL analysis, Jupyter, and Power BI assets |
 | SaaS and security | Tenant isolation, role-based access, session revocation, password lifecycle, audit trails, rate limiting, security headers, and a read-only portfolio mode |
-| Delivery and reliability | Docker Compose, Caddy TLS, health/readiness endpoints, backups, CI, API tests, and 27 Playwright browser workflows |
+| Delivery and reliability | Docker Compose, Caddy TLS, health/readiness endpoints, backups, CI, API tests, and 28 Playwright browser workflows |
 
 ## Three-minute portfolio walkthrough
 
@@ -74,7 +74,7 @@ The project intentionally does not use Ruff, ESLint, Prettier enforcement, or a
 maximum-line-length rule. CI evaluates correctness and deployability without
 rejecting the existing compact source-code style.
 
-The separate `Playwright E2E` job runs 27 serial Chromium workflows against
+The separate `Playwright E2E` job runs 28 serial Chromium workflows against
 an isolated in-memory application server. It covers authentication, role-based
 UI permissions, standard/travel/vehicle policy creation, broker confirmation,
 claim processing, payments, policy PDF download, ETL/CSV workflows, insurance KPIs, and the Data Quality dashboard. Failed runs retain an
