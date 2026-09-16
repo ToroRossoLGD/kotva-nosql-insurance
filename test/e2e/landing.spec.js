@@ -45,3 +45,13 @@ test('Kotva landing uses its own navy and coral visual system',async({page})=>{
   await expect(page.locator('.feature-card').first()).toHaveCSS('background-color','rgb(16, 43, 70)');
   await expect(page.locator('.feature-card').nth(1)).toHaveCSS('background-color','rgb(225, 243, 246)');
 });
+
+test('customer-facing copy leads to the demo without portfolio or source-code messaging',async({page})=>{
+  await page.goto('/');
+  await expect(page.locator('#za-timove')).toContainText('Polise, klijenti i podaci');
+  await expect(page.locator('#za-timove a')).toHaveAttribute('href','/app.html');
+  await expect(page.locator('body')).not.toContainText(/portfolio projekat|edukativni projekat|izvorni kod/i);
+  await page.getByRole('button',{name:'Switch to English'}).click();
+  await expect(page.locator('#za-timove')).toContainText('Policies, clients and data');
+  await expect(page.locator('body')).not.toContainText(/portfolio project|educational project|source code/i);
+});
