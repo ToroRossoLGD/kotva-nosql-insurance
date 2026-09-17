@@ -6,6 +6,7 @@ node_modules/
 npm-debug.log*
 *.log
 uploads/
+backups/
 playwright-report/
 test-results/
 .DS_Store
