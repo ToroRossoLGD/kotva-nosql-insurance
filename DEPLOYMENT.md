@@ -57,10 +57,11 @@ For rollback, check out the previous known-good commit and rebuild. Database
 volumes are not deleted by `docker compose down`; never use `down -v` on the
 VPS. Test restoring backups on a separate machine before relying on them.
 
-## Manual GitHub Actions deployment
+## GitHub Actions deployment
 
-`.github/workflows/deploy.yml` adds a deliberately manual CD path. It can run
-only from `main`, reruns the existing CI checks, then waits for the `production`
+`.github/workflows/deploy.yml` starts automatically on every push to `main`
+(including PR merges). It can also be started manually from `main` as a fallback.
+It reruns the existing CI checks, then waits for the `production`
 environment approval before accessing its SSH secrets. The VPS script refuses
 dirty or non-`main` checkouts and stale commits. It makes a private backup,
 fast-forwards the checkout, rebuilds Compose services, waits for health checks,
@@ -93,11 +94,12 @@ One-time setup, performed by the VPS owner:
 5. Confirm the key works from an authorized machine and that the deploy user
    can run Docker. There is no need to copy `.env.production` into GitHub.
 
-To release: merge the PR into `main`, open **Actions → Deploy public demo → Run
-workflow**, select `main`, and approve the waiting `production` job. Watch the
-workflow result and visit `https://demo.kotva2.com/`. Never start two manual
-deployments for competing commits; the workflow serializes them and rejects an
-outdated SHA. Backups are written to `/opt/kotva/backups`, excluded from Git and
+To release: merge the PR into `main`. Open **Actions → Deploy public demo** and,
+once CI passes, approve the waiting `production` job. Watch the workflow result
+and visit `https://demo.kotva2.com/`. To retry manually, choose **Run workflow**
+on `main`. Do not approve an older run after another merge: the workflow
+serializes deployments and rejects an outdated SHA. Backups are written to
+`/opt/kotva/backups`, excluded from Git and
 the Docker build context. Copy them to protected off-server storage regularly.
 
 If a deployment fails, inspect the Actions log and VPS Compose logs. Do not use

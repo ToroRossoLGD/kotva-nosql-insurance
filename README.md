@@ -29,7 +29,7 @@ multi-tenant web application.
 | Insurance operations | Validated CSV portfolio migration, configurable premium rating, quote-to-policy conversion, travel and vehicle underwriting fields, broker approval, claims, payments, renewals, documents, PDF policies, reminders, and Policy 360° |
 | Analytics engineering | Tenant-scoped ETL, data-quality checks, anonymized CSV exports, a PostgreSQL star schema, KPI definitions, SQL analysis, Jupyter, and Power BI assets |
 | SaaS and security | Tenant isolation, role-based access, session revocation, password lifecycle, audit trails, rate limiting, security headers, and a read-only portfolio mode |
-| Delivery and reliability | Docker Compose, Caddy TLS, health/readiness endpoints, backups, CI, approval-gated manual CD, API tests, and 30 Playwright browser workflows |
+| Delivery and reliability | Docker Compose, Caddy TLS, health/readiness endpoints, backups, CI, approval-gated CD after merges, API tests, and 30 Playwright browser workflows |
 
 ## Three-minute portfolio walkthrough
 
@@ -50,7 +50,7 @@ selected language, and switching languages preserves unfinished form input.
 - **Access control:** administrator, agent, broker, and analyst roles with tenant-scoped data, managed users, login history, and append-only business auditing.
 - **Production operations:** automatic HTTPS, restricted database exposure, graceful shutdown, observability, backups, and a safe read-only public demo.
 - **Public experience:** a bilingual landing page that checks demo availability against the live readiness endpoint.
-- **Controlled deployment:** a manually triggered GitHub Actions workflow reruns CI, requires production approval, backs up the VPS, deploys the selected `main` commit, and verifies health.
+- **Controlled deployment:** a GitHub Actions workflow starts after merges to `main`, reruns CI, requires production approval, backs up the VPS, deploys the selected commit, and verifies health. Manual retry remains available.
 
 ## Technology Stack
 
