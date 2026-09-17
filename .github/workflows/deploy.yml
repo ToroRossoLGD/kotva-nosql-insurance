@@ -68,4 +68,21 @@ jobs:
             -o BatchMode=yes \
             -o StrictHostKeyChecking=yes \
             -o UserKnownHostsFile="$RUNNER_TEMP/kotva-ssh/known_hosts" \
-            "$DEPLOY_USER@$DEPLOY_HOST" "bash -s -- '$GITHUB_SHA'" < ops/deploy.sh
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "set -eu; script=\$(mktemp /tmp/kotva-deploy.XXXXXXXX); trap 'rm -f \"\$script\"' EXIT; cat > \"\$script\"; bash \"\$script\" '$GITHUB_SHA'" \
+            < ops/deploy.sh
+
+      - name: Verify the VPS reached the requested commit
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+        run: |
+          deployed_sha=$(ssh -i "$RUNNER_TEMP/kotva-ssh/id_ed25519" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$RUNNER_TEMP/kotva-ssh/known_hosts" \
+            "$DEPLOY_USER@$DEPLOY_HOST" 'git -C /opt/kotva rev-parse HEAD')
+          if [[ "$deployed_sha" != "$GITHUB_SHA" ]]; then
+            echo "VPS commit $deployed_sha does not match requested commit $GITHUB_SHA" >&2
+            exit 1
+          fi

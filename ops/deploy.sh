@@ -45,7 +45,7 @@ if [[ -z "${DOMAIN:-}" || -z "${ARANGO_PASSWORD:-}" ]]; then
   exit 1
 fi
 export BACKUP_DIR="$DEPLOY_DIR/backups"
-sh ops/backup.sh
+sh ops/backup.sh </dev/null
 
 git merge --ff-only "$EXPECTED_SHA"
 "${COMPOSE[@]}" config --quiet
