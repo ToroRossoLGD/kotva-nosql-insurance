@@ -55,3 +55,23 @@ test('customer-facing copy leads to the demo without portfolio or source-code me
   await expect(page.locator('#za-timove')).toContainText('Policies, clients and data');
   await expect(page.locator('body')).not.toContainText(/portfolio project|educational project|source code/i);
 });
+
+test('demo availability follows the real readiness endpoint and language',async({page})=>{
+  await page.route('**/api/health/ready',route=>route.fulfill({status:200,contentType:'application/json',body:'{"status":"ready"}'}));
+  await page.goto('/');
+  await expect(page.locator('#demo-health')).toHaveAttribute('data-state','ready');
+  await expect(page.getByRole('status')).toHaveText('Demo je dostupan');
+  await page.getByRole('button',{name:'Switch to English'}).click();
+  await expect(page.getByRole('status')).toHaveText('Demo is available');
+});
+
+test('demo availability reports unavailable when readiness fails',async({page})=>{
+  await page.route('**/api/health/ready',route=>route.fulfill({status:503,contentType:'application/json',body:'{"status":"not_ready"}'}));
+  await page.goto('/');
+  await expect(page.locator('#demo-health')).toHaveAttribute('data-state','unavailable');
+  await expect(page.getByRole('status')).toHaveText('Demo trenutno nije dostupan');
+  await page.unroute('**/api/health/ready');
+  await page.route('**/api/health/ready',route=>route.abort());
+  await page.reload();
+  await expect(page.locator('#demo-health')).toHaveAttribute('data-state','unavailable');
+});
