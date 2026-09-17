@@ -8,6 +8,7 @@ on:
     branches:
       - main
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -37,6 +38,9 @@ jobs:
 
       - name: Check JavaScript syntax
         run: npm run check
+
+      - name: Check deployment script syntax
+        run: bash -n ops/deploy.sh
 
       - name: Run automated tests
         run: npm test
