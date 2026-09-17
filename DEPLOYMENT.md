@@ -64,7 +64,9 @@ only from `main`, reruns the existing CI checks, then waits for the `production`
 environment approval before accessing its SSH secrets. The VPS script refuses
 dirty or non-`main` checkouts and stale commits. It makes a private backup,
 fast-forwards the checkout, rebuilds Compose services, waits for health checks,
-and checks the public readiness, landing and sign-in URLs. A failed deployment
+and checks the public readiness, landing and sign-in URLs. A separate workflow
+step confirms the VPS reached the requested commit, so a prematurely ended
+remote script cannot appear as a successful deployment. A failed deployment
 stops with an error; it does **not** automatically roll back a database change.
 
 One-time setup, performed by the VPS owner:
