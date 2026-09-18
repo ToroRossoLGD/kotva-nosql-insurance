@@ -172,6 +172,16 @@ test.describe.serial('Kotva browser workflows',()=>{
     expect(download.suggestedFilename()).toMatch(/^kotva-polise-jeca-\d{4}-\d{2}-\d{2}\.xlsx$/);
   });
 
+  test('analytics finds a policy by insurer-issued number',async({page})=>{
+    const number=`UNIQA/WEB-${Date.now()}`;await login(page);const form=await createPolicy(page,{name:'NumberSearchE2E'});await form.locator('[name="insurerPolicyNumber"]').fill(number);await form.locator('button').click();
+    await expect(page.locator('#client-message')).toContainText('uspešno sačuvan');
+    await page.locator('#policy-number-search [name="number"]').fill(number.slice(6));await page.locator('#policy-number-search button').click();
+    await expect(page.locator('#policy-number-results')).toContainText(number);await expect(page.locator('#policy-number-results')).toContainText('NumberSearchE2E Playwright');
+    await page.locator('#policy-number-results a').click();await expect(page.locator('#policy-fields')).toContainText(number);
+    await page.locator('#detail-insurer-policy-number').fill(`${number}-NEW`);await page.locator('#save-policy-status').click();
+    await expect(page.locator('#detail-action-message')).toContainText('sačuvane');await expect(page.locator('#policy-fields')).toContainText(`${number}-NEW`);
+  });
+
   test('11. analyst monitors data quality scores and ETL trend',async({page})=>{
     await login(page,'analyst','Analyst123!');await expect(page.locator('#quality-status')).toContainText('Overall');await expect(page.locator('#quality-dimensions .quality-dimension')).toHaveCount(5);await expect(page.locator('#quality-dimensions')).toContainText('Potpunost');await expect(page.locator('#quality-dimensions')).toContainText('Referencijalni integritet');await expect(page.locator('#quality-updated')).toContainText('Poslednji ETL');await expect(page.locator('#quality-issues-chart')).toBeVisible();await expect(page.locator('#quality-trend-chart')).toBeVisible();
   });

@@ -119,6 +119,25 @@ test('agent can create clients but cannot create insurers',async()=>{
   assert.equal(insurer.response.status,403);
 });
 
+test('insurer-issued policy numbers are searchable without insurer-specific formats',async()=>{
+  const agent=await login('agent','Agent123!'),analyst=await login('analyst','Analyst123!'),headers={cookie:agent.cookie,'content-type':'application/json'};
+  const base=withPolicy({name:'Number',surname:'Lookup',age:35,insuranceType:'DZO',insurer:'Uniqa',saleDate:'2023-01-01'},{insurerPolicyNumber:'UNIQA/23-A 001'});
+  const created=await request('/api/clients',{method:'POST',headers,body:JSON.stringify(base)});assert.equal(created.response.status,201);assert.equal(created.body.insurerPolicyNumber,'UNIQA/23-A 001');
+  const found=await request('/api/policies/lookup?number=23-a%20001',{headers:{cookie:analyst.cookie}});assert.equal(found.response.status,200);assert.equal(found.body.totalItems,1);assert.equal(found.body.items[0].clientId,created.body.id);assert.equal(found.body.items[0].insurerPolicyNumber,'UNIQA/23-A 001');
+  const internal=await request(`/api/policies/lookup?number=${encodeURIComponent(created.body.policyNumber)}`,{headers:{cookie:analyst.cookie}});assert.equal(internal.response.status,200);assert.equal(internal.body.items[0].clientId,created.body.id);
+  const directory=await request('/api/clients?q=23-a%20001',{headers:{cookie:analyst.cookie}});assert.equal(directory.response.status,200);assert.ok(directory.body.items.some(item=>item.id===created.body.id));
+  const renewed=await request(`/api/clients/${created.body.id}/renew`,{method:'POST',headers,body:JSON.stringify({saleDate:'2024-01-02',validFrom:'2024-01-02',validUntil:'2025-01-02',premium:13000,currency:'RSD',insurer:'Uniqa',paymentMethod:'Kartica',insuredSubject:'Number Lookup',policyIntroducer:'Dača',insurerPolicyNumber:'UNIQA/24-B 002'})});assert.equal(renewed.response.status,201);
+  const archived=await request('/api/policies/lookup?number=23-a%20001',{headers:{cookie:analyst.cookie}});assert.equal(archived.body.totalItems,1);assert.equal(archived.body.items[0].archived,true);assert.equal(archived.body.items[0].policyNumber,created.body.policyNumber);
+  const current=await request('/api/policies/lookup?number=24-b%20002',{headers:{cookie:analyst.cookie}});assert.equal(current.body.totalItems,1);assert.equal(current.body.items[0].archived,false);
+  const updated=await request(`/api/clients/${created.body.id}/policy`,{method:'PATCH',headers,body:JSON.stringify({insurerPolicyNumber:'UNIQA/24-C 003'})});assert.equal(updated.response.status,200);assert.equal(updated.body.insurerPolicyNumber,'UNIQA/24-C 003');
+  const backfilled=await request('/api/policies/lookup?number=24-c%20003',{headers:{cookie:analyst.cookie}});assert.equal(backfilled.body.totalItems,1);assert.equal(backfilled.body.items[0].clientId,created.body.id);
+  const invalidUpdate=await request(`/api/clients/${created.body.id}/policy`,{method:'PATCH',headers,body:JSON.stringify({insurerPolicyNumber:'BAD\nNUMBER'})});assert.equal(invalidUpdate.response.status,400);
+  const adria=await login('adria-admin','Adria123!'),isolated=await request('/api/policies/lookup?number=24-b%20002',{headers:{cookie:adria.cookie}});assert.equal(isolated.body.totalItems,0);
+  const missing=await request('/api/policies/lookup?number=x',{headers:{cookie:analyst.cookie}});assert.equal(missing.response.status,400);
+  const anonymous=await request('/api/policies/lookup?number=23-a%20001');assert.equal(anonymous.response.status,401);
+  const invalid=await request('/api/clients',{method:'POST',headers,body:JSON.stringify({...base,insurerPolicyNumber:'BAD\nNUMBER'})});assert.equal(invalid.response.status,400);
+});
+
 test('policy introducer is required, validated, and stored separately from the agent',async()=>{
   const agent=await login('agent','Agent123!');
   const base=withPolicy({name:'Introducer',surname:'Example',age:35,insuranceType:'DZO',insurer:'Uniqa',saleDate:'2026-09-18'});
