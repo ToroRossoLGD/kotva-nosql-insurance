@@ -367,6 +367,7 @@ read-only demo mode, backups, updates, and a LinkedIn launch checklist, follow
 | GET | `/api/analytics/data-quality` | Return current quality scores, issues, thresholds, and ETL trend |
 | GET | `/api/exports/insurance-market-share.xlsx` | Download the current tenant's Excel market-share report |
 | GET | `/api/exports/introducer-policies.xlsx?introducer=...` | Download a tenant-scoped Excel policy list for Matijaš, Dača, or Jeca, including attributed archived versions |
+| GET | `/api/policies/lookup?number=...` | Search current and archived policies by internal or insurer-issued policy number |
 | GET | `/api/etl/runs` | List the tenant's latest ETL executions for analysts and administrators |
 | POST | `/api/etl/runs` | Run the filtered extraction, transformation, and quality-check pipeline |
 | GET | `/api/etl/exports/:dataset` | Export one of five analysis-ready CSV datasets |
