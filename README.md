@@ -7,10 +7,10 @@
 ![ArangoDB 3.12](https://img.shields.io/badge/ArangoDB-3.12-DDE072?logo=arangodb&logoColor=black)
 [![License: ISC](https://img.shields.io/badge/license-ISC-blue.svg)](LICENSE)
 
-Kotva is a production-oriented insurance operations and analytics application.
-It combines an ArangoDB multi-model transactional system with a PostgreSQL star
-schema, reproducible ETL pipelines, business intelligence assets, and a secure
-multi-tenant web application.
+Kotva is an insurance operations platform for managing policies, clients,
+payments, claims, and portfolio performance in one place. It combines a secure,
+multi-tenant web application with ArangoDB operational data, a PostgreSQL
+analytics warehouse, and reproducible reporting pipelines.
 
 **[Open the live demo](https://demo.kotva2.com)** ·
 **[Deployment guide](DEPLOYMENT.md)** ·
@@ -22,14 +22,15 @@ multi-tenant web application.
 
 ![Kotva Policy 360 page](docs/assets/policy-360.png)
 
-## What this project demonstrates
+## Platform capabilities
 
 | Area | Implemented capabilities |
 | --- | --- |
 | Insurance operations | Validated CSV portfolio migration, configurable premium rating, quote-to-policy conversion, travel and vehicle underwriting fields, broker approval, claims, payments, renewals, documents, PDF policies, reminders, and Policy 360° |
+| Policy discovery and reporting | Search by the insurer-issued or internal policy number, including previous policy versions; employee-attributed policy tracking and individual Excel exports; insurer market-share reports |
 | Analytics engineering | Tenant-scoped ETL, data-quality checks, anonymized CSV exports, a PostgreSQL star schema, KPI definitions, SQL analysis, Jupyter, and Power BI assets |
 | SaaS and security | Tenant isolation, role-based access, session revocation, password lifecycle, audit trails, rate limiting, security headers, and a read-only portfolio mode |
-| Delivery and reliability | Docker Compose, Caddy TLS, health/readiness endpoints, backups, CI, approval-gated CD after merges, API tests, and 30 Playwright browser workflows |
+| Delivery and reliability | Docker Compose, Caddy TLS, health/readiness endpoints, backups, CI, approval-gated CD after merges, API tests, and Playwright browser workflows |
 
 ## Three-minute portfolio walkthrough
 
@@ -45,7 +46,8 @@ selected language, and switching languages preserves unfinished form input.
 
 - **Policy lifecycle:** client and insurer management, dynamic policy fields, renewals with immutable snapshots, claims, payments, PDF generation, and secure document storage.
 - **Operational insight:** interactive market-share, age, monthly-sales, and July travel-policy charts plus searchable client and policy views.
-- **Portfolio directory:** server-side pagination with combined name/policy search, insurance, insurer, status and date filters, and controlled sorting.
+- **Portfolio directory:** server-side pagination with combined name/policy search, insurance, insurer, status and date filters, and controlled sorting. Insurer-issued policy numbers can be added during policy entry or renewal, or updated later in Policy 360°.
+- **Policy lookup and exports:** search current and archived policies by either policy number; download tenant-scoped market-share and per-employee Excel reports.
 - **Data platform:** repeatable ETL runs, quality history, analysis-ready exports, warehouse loading, reconciled KPIs, SQL, pandas, and Power BI deliverables.
 - **Access control:** administrator, agent, broker, and analyst roles with tenant-scoped data, managed users, login history, and append-only business auditing.
 - **Production operations:** automatic HTTPS, restricted database exposure, graceful shutdown, observability, backups, and a safe read-only public demo.
@@ -76,7 +78,7 @@ The project intentionally does not use Ruff, ESLint, Prettier enforcement, or a
 maximum-line-length rule. CI evaluates correctness and deployability without
 rejecting the existing compact source-code style.
 
-The separate `Playwright E2E` job runs 30 serial Chromium workflows against
+The separate `Playwright E2E` job runs serial Chromium workflows against
 an isolated in-memory application server. It covers authentication, role-based
 UI permissions, standard/travel/vehicle policy creation, broker confirmation,
 claim processing, payments, policy PDF download, ETL/CSV workflows, insurance KPIs, and the Data Quality dashboard. Failed runs retain an
@@ -116,7 +118,7 @@ ArangoDB is used for several NoSQL concepts in the same project:
 | `analytics/` | Reproducible notebook, data dictionary, charts, and analyst documentation |
 | `powerbi/` | Versioned Power Query, DAX measures, theme, and semantic-model guide |
 | `test/` | Node.js API and integration coverage |
-| `e2e/` | Playwright browser workflows for critical user journeys |
+| `test/e2e/` | Playwright browser workflows for critical user journeys |
 | `ops/` and `docker-compose*.yml` | VPS deployment, proxy, backup, and container configuration |
 
 ## Data Model
@@ -344,7 +346,7 @@ read-only demo mode, backups, updates, and a LinkedIn launch checklist, follow
 | GET | `/api/imports/policies/runs` | List auditable policy-import executions |
 | GET | `/api/clients/:id/details` | Return the tenant-safe Policy 360° operational view |
 | GET | `/api/clients/:id/policy.pdf` | Generate and download the latest tenant-protected policy PDF |
-| PATCH | `/api/clients/:id/policy` | Change policy/payment status and append an audit-history entry |
+| PATCH | `/api/clients/:id/policy` | Update policy/payment status or the insurer-issued number and append an audit-history entry |
 | POST | `/api/clients/:id/renew` | Archive the current policy version and create its validated successor |
 | POST | `/api/clients/:id/broker-approval` | Confirm auto-insurance vehicle details as an agent or administrator |
 | GET | `/api/claims` | List the current tenant's claims |
@@ -479,7 +481,7 @@ Q10 returns only reconciliation exceptions, so a successful run returns none.
 ## Jupyter Portfolio Case Study
 
 The executed [Kotva portfolio analysis](analytics/kotva_portfolio_analysis.ipynb)
-turns the anonymized ETL output into a recruiter-friendly analytical case study.
+turns the anonymized ETL output into a reproducible portfolio analysis.
 It validates schema and privacy constraints, calculates executive KPIs, explores
 monthly and year-over-year trends, benchmarks insurers, segments products and
 age groups, examines premium/age relationships, identifies payment risk, and
@@ -515,6 +517,11 @@ metadata, document references, and an append-only change history. Policy and
 payment status changes record the authenticated operator, timestamp, previous
 values, and new values. Auto-policy broker confirmation is recorded in the same
 history.
+
+An optional insurer-issued number is stored separately from Kotva's internal
+policy number. It accepts the insurer's original format without a company-
+specific pattern. Authorized operators can add or correct it later, and the
+Analytics lookup finds matches in both current and archived policy versions.
 
 Existing demo and database records are upgraded automatically at startup with
 safe legacy values. Attached-document metadata is stored in ArangoDB; production
@@ -669,11 +676,10 @@ Project collaboration and disclosure guidance is available in
 [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`SECURITY.md`](SECURITY.md). The source
 is distributed under the [`ISC License`](LICENSE).
 
-## Project Scope
+## Deployment scope
 
-This is a portfolio and educational project. It includes authentication,
-authorization, HTTPS-ready proxy configuration, rate limiting, security
-headers, automated tests, health checks, and backup tooling. A commercial
-production deployment would additionally require managed secrets, off-site
-tested restores, centralized monitoring, dependency patching, an external
-object store, formal privacy controls, and an operational incident process.
+The public demo uses synthetic data and read-only visitor access. Private
+deployments require environment-specific secrets and operational review of
+backup restores, monitoring, privacy controls, and incident procedures before
+handling customer data. See the [deployment guide](DEPLOYMENT.md) for the
+current VPS setup and approval-gated release process.
