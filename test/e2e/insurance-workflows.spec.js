@@ -160,6 +160,18 @@ test.describe.serial('Kotva browser workflows',()=>{
     await login(page,'analyst','Analyst123!');await expect(page.locator('#kpi-currency')).toHaveValue('RSD');await expect(page.locator('#kpi-cards')).toContainText('Ugovorena premija');await expect(page.locator('#kpi-cards')).toContainText('Stopa naplate');await expect(page.locator('#kpi-cards')).toContainText('Procenjeni odnos šteta i premije');await expect(page.locator('#kpi-cards')).toContainText('Učestalost šteta');await expect(page.locator('.kpi-definition')).toContainText('nije računovodstveni incurred loss ratio');await expect(page.locator('#premium-trend-chart')).toBeVisible();await expect(page.locator('#insurer-kpi-chart')).toBeVisible();
   });
 
+  test('analyst downloads a separate Excel policy report for a selected introducer',async({page})=>{
+    await login(page,'analyst','Analyst123!');
+    await expect(page.locator('#introducer-export-select')).toBeVisible();
+    await page.locator('#introducer-export-select').selectOption('Jeca');
+    const responsePromise=page.waitForResponse(response=>response.url().includes('/api/exports/introducer-policies.xlsx'));
+    const downloadPromise=page.waitForEvent('download');
+    await page.locator('#introducer-export-button').click();
+    const response=await responsePromise;expect(response.status(),response.ok()?'Excel export succeeded':await response.text()).toBe(200);
+    const download=await downloadPromise;
+    expect(download.suggestedFilename()).toMatch(/^kotva-polise-jeca-\d{4}-\d{2}-\d{2}\.xlsx$/);
+  });
+
   test('11. analyst monitors data quality scores and ETL trend',async({page})=>{
     await login(page,'analyst','Analyst123!');await expect(page.locator('#quality-status')).toContainText('Overall');await expect(page.locator('#quality-dimensions .quality-dimension')).toHaveCount(5);await expect(page.locator('#quality-dimensions')).toContainText('Potpunost');await expect(page.locator('#quality-dimensions')).toContainText('Referencijalni integritet');await expect(page.locator('#quality-updated')).toContainText('Poslednji ETL');await expect(page.locator('#quality-issues-chart')).toBeVisible();await expect(page.locator('#quality-trend-chart')).toBeVisible();
   });

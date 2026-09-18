@@ -256,6 +256,26 @@ test('Excel export contains tenant market-share percentages and DZO',async()=>{
   const insurerNames=source.getColumn(1).values.slice(2,-1);assert.equal(new Set(insurerNames).size,insurerNames.length);assert.ok(insurerNames.includes('Uniqa'));
 });
 
+test('employee Excel exports contain only that introducer’s current and archived policies',async()=>{
+  const agent=await login('agent','Agent123!'),headers={cookie:agent.cookie,'content-type':'application/json'};
+  const old=await request('/api/clients',{method:'POST',headers,body:JSON.stringify(withPolicy({name:'Report',surname:'Renewal',age:42,insuranceType:'DZO',insurer:'Uniqa',saleDate:'2023-01-01'}))});assert.equal(old.response.status,201);
+  const renewed=await request(`/api/clients/${old.body.id}/renew`,{method:'POST',headers,body:JSON.stringify({saleDate:'2024-01-02',validFrom:'2024-01-02',validUntil:'2025-01-02',premium:1500,currency:'RSD',insurer:'Uniqa',paymentMethod:'Kartica',insuredSubject:'Report Renewal',policyIntroducer:'Dača'})});assert.equal(renewed.response.status,201);
+  const jeca=await request('/api/clients',{method:'POST',headers,body:JSON.stringify(withPolicy({name:'Report',surname:'Jeca',age:34,insuranceType:'DZO',insurer:'Uniqa',saleDate:'2026-09-18'},{policyIntroducer:'Jeca'}))});assert.equal(jeca.response.status,201);
+  const reports={};for(const introducer of ['Matijaš','Dača','Jeca']){
+    const response=await fetch(`${baseUrl}/api/exports/introducer-policies.xlsx?introducer=${encodeURIComponent(introducer)}`,{headers:{cookie:agent.cookie}});assert.equal(response.status,200);assert.match(response.headers.get('content-type'),/spreadsheetml/);assert.match(response.headers.get('content-disposition'),/\.xlsx/);assert.equal(response.headers.get('cache-control'),'private, no-store');
+    const workbook=new ExcelJS.Workbook();await workbook.xlsx.load(await response.arrayBuffer());const sheet=workbook.getWorksheet('Polise');assert.ok(sheet);assert.equal(sheet.getCell('A5').value,'Broj polise');assert.equal(sheet.getCell('D5').value,'Klijent');
+    reports[introducer]=Array.from({length:Math.max(0,sheet.rowCount-5)},(_,index)=>sheet.getRow(index+6).values.slice(1));
+  }
+  assert.ok(reports['Matijaš'].some(row=>row[0]===old.body.policyNumber&&row[2]==='Arhivirana'));
+  assert.ok(reports['Dača'].some(row=>row[0]===renewed.body.policyNumber&&row[2]==='Aktuelna'));
+  assert.ok(reports['Jeca'].some(row=>row[0]===jeca.body.policyNumber));
+  for(const [introducer,rows] of Object.entries(reports))for(const [policyNumber,owner] of [[old.body.policyNumber,'Matijaš'],[renewed.body.policyNumber,'Dača'],[jeca.body.policyNumber,'Jeca']])assert.equal(rows.some(row=>row[0]===policyNumber),introducer===owner);
+  const adria=await login('adria-admin','Adria123!'),otherTenant=await request('/api/clients',{method:'POST',headers:{cookie:adria.cookie,'content-type':'application/json'},body:JSON.stringify(withPolicy({name:'Adria',surname:'Jeca',age:30,insuranceType:'DZO',insurer:'Adria Secure',saleDate:'2026-09-18'},{policyIntroducer:'Jeca'}))});assert.equal(otherTenant.response.status,201);
+  const adriaResponse=await fetch(`${baseUrl}/api/exports/introducer-policies.xlsx?introducer=Jeca`,{headers:{cookie:adria.cookie}});assert.equal(adriaResponse.status,200);const adriaWorkbook=new ExcelJS.Workbook();await adriaWorkbook.xlsx.load(await adriaResponse.arrayBuffer());const adriaSheet=adriaWorkbook.getWorksheet('Polise'),adriaNumbers=Array.from({length:Math.max(0,adriaSheet.rowCount-5)},(_,index)=>adriaSheet.getRow(index+6).getCell(1).value);assert.ok(adriaNumbers.includes(otherTenant.body.policyNumber));assert.ok(!adriaNumbers.includes(jeca.body.policyNumber));
+  const invalid=await request('/api/exports/introducer-policies.xlsx?introducer=Unknown',{headers:{cookie:agent.cookie}});assert.equal(invalid.response.status,400);
+  const anonymous=await request('/api/exports/introducer-policies.xlsx?introducer=Jeca');assert.equal(anonymous.response.status,401);
+});
+
 test('tenant data and analytics are isolated between companies',async()=>{
   const kotva=await login('admin','Admin123!');
   const adria=await login('adria-admin','Adria123!');

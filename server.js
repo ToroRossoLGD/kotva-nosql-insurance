@@ -302,6 +302,28 @@ async function buildMarketShareWorkbook(clients,insurers,tenantName){
   for(let rowIndex=5;rowIndex<=insurerNames.length+6;rowIndex++)report.getRow(rowIndex).eachCell(cell=>{cell.border={bottom:{style:'thin',color:{argb:'FFE1E7EB'}}};cell.alignment={vertical:'middle',horizontal:cell.column===1?'left':'center'}});
   return workbook;
 }
+async function buildIntroducerPoliciesWorkbook(clients,introducer,tenantName){
+  const records=clients.flatMap(client=>[...(client.policyVersions||[]).map(version=>({...version,client,recordState:'Arhivirana'})),{...client,client,recordState:'Aktuelna'}])
+    .filter(record=>record.policyIntroducer===introducer)
+    .sort((a,b)=>String(b.saleDate||'').localeCompare(String(a.saleDate||''))||String(a.policyNumber||'').localeCompare(String(b.policyNumber||'')));
+  const workbook=new ExcelJS.Workbook();workbook.creator='Kotva';workbook.created=new Date();
+  const sheet=workbook.addWorksheet('Polise',{views:[{state:'frozen',xSplit:0,ySplit:5}]});sheet.showGridLines=false;
+  sheet.columns=[{width:23},{width:12},{width:14},{width:27},{width:20},{width:24},{width:17},{width:17},{width:17},{width:17},{width:11},{width:18},{width:18}];
+  sheet.mergeCells('A1:M1');const title=sheet.getCell('A1');title.value=`POLISE — ${introducer.toUpperCase()}`;title.font={name:'Arial',size:19,bold:true,color:{argb:'FFFFFFFF'}};title.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF102D46'}};title.alignment={vertical:'middle'};sheet.getRow(1).height=38;
+  sheet.mergeCells('A2:M2');sheet.getCell('A2').value=`Firma: ${tenantName}  |  Datum izveštaja: ${new Date().toLocaleDateString('sr-RS')}  |  Broj polisa: ${records.length}`;sheet.getCell('A2').font={bold:true,color:{argb:'FF176F65'}};sheet.getRow(2).height=25;
+  sheet.mergeCells('A3:M3');sheet.getCell('A3').value='Prikazane su aktuelne i arhivirane verzije kojima je ovaj donosilac evidentiran. Polise bez donosioca nisu uključene.';sheet.getCell('A3').font={italic:true,color:{argb:'FF607382'}};
+  sheet.getRow(5).values=['Broj polise','Verzija','Evidencija','Klijent','Tip osiguranja','Osiguravajuća kuća','Datum prodaje','Važi od','Važi do','Premija','Valuta','Status polise','Status plaćanja'];
+  const header=sheet.getRow(5);header.height=29;header.font={bold:true,color:{argb:'FFFFFFFF'}};header.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF176F65'}};header.alignment={vertical:'middle',wrapText:true};
+  for(const [index,record] of records.entries()){
+    const row=sheet.getRow(index+6);row.values=[record.policyNumber||'',Number(record.version||record.policyVersion||1),record.recordState,`${record.client.name||''} ${record.client.surname||''}`.trim(),record.insuranceType||record.client.insuranceType||'',record.insurer||'',record.saleDate||'',record.validFrom||'',record.validUntil||'',Number(record.premium||0),record.currency||'',record.policyStatus||'',record.paymentStatus||''];
+    row.height=22;if(index%2===1)row.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF3F7F8'}};
+    row.getCell(10).numFmt='#,##0.00';row.getCell(1).font={bold:true,color:{argb:'FF102D46'}};
+    row.eachCell(cell=>{cell.alignment={vertical:'middle',horizontal:[2,10].includes(cell.col)?'right':'left'};cell.border={bottom:{style:'thin',color:{argb:'FFE1E7EB'}}}});
+  }
+  if(!records.length){sheet.mergeCells('A6:M6');sheet.getCell('A6').value='Za izabranog donosioca trenutno nema evidentiranih polisa.';sheet.getCell('A6').font={italic:true,color:{argb:'FF607382'}}}
+  else sheet.autoFilter={from:'A5',to:`M${records.length+5}`};
+  return workbook;
+}
 function parseEtlFilters(source={}){
   const filters={dateFrom:String(source.dateFrom||''),dateTo:String(source.dateTo||''),insuranceType:String(source.insuranceType||''),insurer:String(source.insurer||'').trim(),policyStatus:String(source.policyStatus||'')};
   if(filters.dateFrom&&!validIsoDate(filters.dateFrom))throw Object.assign(new Error('Početni datum nije ispravan.'),{status:400});if(filters.dateTo&&!validIsoDate(filters.dateTo))throw Object.assign(new Error('Krajnji datum nije ispravan.'),{status:400});if(filters.dateFrom&&filters.dateTo&&filters.dateFrom>filters.dateTo)throw Object.assign(new Error('Početni datum mora biti pre krajnjeg datuma.'),{status:400});if(filters.insuranceType&&!TYPES.includes(filters.insuranceType))throw Object.assign(new Error('Tip osiguranja nije ispravan.'),{status:400});if(filters.policyStatus&&!POLICY_STATUSES.includes(filters.policyStatus))throw Object.assign(new Error('Status polise nije ispravan.'),{status:400});if(filters.insurer.length>80)throw Object.assign(new Error('Naziv osiguravajuće kuće je predugačak.'),{status:400});return filters;
@@ -475,6 +497,11 @@ app.get('/api/exports/insurance-market-share.xlsx',async(q,r,n)=>{try{
   const clients=await all('clients',memoryClients,q.user.tenantId),insurers=await all('insurers',memoryInsurers,q.user.tenantId),workbook=await buildMarketShareWorkbook(clients,insurers,q.user.tenantName);
   const buffer=await workbook.xlsx.writeBuffer(),date=new Date().toISOString().slice(0,10);
   r.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');r.setHeader('Content-Disposition',`attachment; filename="kotva-market-share-${date}.xlsx"`);r.setHeader('Cache-Control','no-store');r.send(Buffer.from(buffer));
+}catch(e){n(e)}});
+app.get('/api/exports/introducer-policies.xlsx',async(q,r,n)=>{try{
+  const introducer=String(q.query.introducer||'');if(!POLICY_INTRODUCERS.includes(introducer))return r.status(400).json({message:'Izaberite donosioca polise: Matijaš, Dača ili Jeca.'});
+  const clients=await all('clients',memoryClients,q.user.tenantId),workbook=await buildIntroducerPoliciesWorkbook(clients,introducer,q.user.tenantName),buffer=await workbook.xlsx.writeBuffer(),date=new Date().toISOString().slice(0,10),slug={'Matijaš':'matijas','Dača':'daca','Jeca':'jeca'}[introducer];
+  r.set({'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','Content-Disposition':`attachment; filename="kotva-polise-${slug}-${date}.xlsx"`,'Cache-Control':'private, no-store'});r.send(Buffer.from(buffer));
 }catch(e){n(e)}});
 app.get('/api/etl/runs',authorize('admin','analyst'),async(q,r,n)=>{try{const runs=await all('etl_runs',memoryEtlRuns,q.user.tenantId);r.json(runs.sort((a,b)=>b.completedAt.localeCompare(a.completedAt)).slice(0,25))}catch(e){n(e)}});
 app.get('/api/analytics/data-quality',authorize('admin','analyst'),async(q,r,n)=>{try{const[clients,payments,claims,runs]=await Promise.all([all('clients',memoryClients,q.user.tenantId),all('payments',memoryPayments,q.user.tenantId),all('claims',memoryClaims,q.user.tenantId),all('etl_runs',memoryEtlRuns,q.user.tenantId)]),quality=calculateDataQuality(clients,payments,claims),trend=runs.filter(item=>item.qualitySnapshot).sort((a,b)=>a.completedAt.localeCompare(b.completedAt)).slice(-20).map(item=>({runId:item.id,completedAt:item.completedAt,overallScore:item.qualitySnapshot.overallScore,issueCount:item.qualitySnapshot.issueCount,errorCount:item.qualitySnapshot.errorCount,warningCount:item.qualitySnapshot.warningCount}));r.json({...quality,lastSuccessfulEtl:runs.filter(item=>item.status==='completed').sort((a,b)=>b.completedAt.localeCompare(a.completedAt))[0]?.completedAt||null,trend})}catch(e){n(e)}});
