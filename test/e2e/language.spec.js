@@ -29,11 +29,13 @@ test('language selection persists through login, reload and logout; forms keep c
   await form.getByLabel('Last name',{exact:true}).fill('LanguageTest');
   await form.getByLabel('Age',{exact:true}).fill('35');
   await form.getByLabel('Insurance type',{exact:true}).selectOption({label:'Private health'});
+  await form.getByLabel('Policy introducer',{exact:true}).selectOption('Jeca');
   await form.getByLabel('Premium',{exact:true}).fill('1234.5');
   await form.getByLabel('Insured subject',{exact:true}).fill('Language test policy');
   await picker(page).selectOption('sr');
   await expect(form.locator('[name=name]')).toHaveValue('Putno');
   await expect(form.locator('[name=insuranceType]')).toHaveValue('DZO');
+  await expect(form.locator('[name=policyIntroducer]')).toHaveValue('Jeca');
   await expect(form.locator('[name=premium]')).toHaveValue('1234.5');
   await picker(page).selectOption('en');
   await form.getByLabel('Policy status',{exact:true}).selectOption({label:'Active'});
@@ -41,7 +43,7 @@ test('language selection persists through login, reload and logout; forms keep c
   await form.getByLabel('Payment status',{exact:true}).selectOption({label:'Unpaid'});
   const sent=page.waitForRequest(request=>request.url().endsWith('/api/clients')&&request.method()==='POST');
   await form.getByRole('button',{name:'Save client and policy'}).click();
-  expect((await sent).postDataJSON()).toMatchObject({name:'Putno',insuranceType:'DZO',policyStatus:'Aktivna',paymentMethod:'Kartica',paymentStatus:'Neplaćeno'});
+  expect((await sent).postDataJSON()).toMatchObject({name:'Putno',insuranceType:'DZO',policyIntroducer:'Jeca',policyStatus:'Aktivna',paymentMethod:'Kartica',paymentStatus:'Neplaćeno'});
   await expect(page.locator('#client-message')).toHaveText('Client saved successfully.');
   await expect(page.locator('#clients-body')).toContainText('Putno LanguageTest');
   await page.reload();

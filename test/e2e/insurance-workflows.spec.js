@@ -26,6 +26,7 @@ async function createPolicy(page,{name,type='DZO',premium='1000',paymentStatus='
   await form.locator('[name="age"]').fill('35');
   await form.locator('[name="insuranceType"]').selectOption(type);
   await form.locator('[name="insurer"]').selectOption({label:'Uniqa'});
+  await form.locator('[name="policyIntroducer"]').selectOption('Matijaš');
   await form.locator('[name="saleDate"]').fill(today);
   await form.locator('[name="validFrom"]').fill(today);
   await form.locator('[name="validUntil"]').fill(nextYear);

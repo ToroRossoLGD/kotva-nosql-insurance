@@ -520,4 +520,5 @@ Object.assign(translations,{
 Object.assign(translations,{
   'Obnovi polisu':'Renew policy','Trenutna verzija ostaje trajno sačuvana, a nova dobija jedinstven broj.':'The current version is permanently archived and the new one receives a unique number.','Početak nove verzije':'New version start','Kreiraj novu verziju':'Create new version','Verzije polise':'Policy versions','verzija':'versions','Aktuelna':'Current','Polisa obnovljena':'Policy renewed','Polisa je obnovljena':'Policy renewed','Datumi obnove nisu ispravni.':'Renewal dates are invalid.','Datum prodaje obnove ne može biti posle početka važenja.':'Renewal sale date cannot be after coverage starts.','Nova verzija polise mora početi nakon isteka trenutne verzije.':'The new policy version must start after the current version expires.'
 });
+Object.assign(translations,{'Donosilac polise':'Policy introducer','Izaberite donosioca':'Select an introducer','Izaberite donosioca polise: Matijaš, Dača ili Jeca.':'Select a policy introducer: Matijaš, Dača or Jeca.'});
 initializeLanguage();
