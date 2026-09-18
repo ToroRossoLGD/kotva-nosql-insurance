@@ -30,7 +30,7 @@ async function login(username,password){
 
 function withPolicy(data,overrides={}){
   const saleDate=data.saleDate,validUntil=`${Number(saleDate.slice(0,4))+1}${saleDate.slice(4)}`;
-  return{...data,validFrom:saleDate,validUntil,premium:12000,currency:'RSD',policyStatus:'Aktivna',paymentMethod:'Kartica',paymentStatus:'Plaćeno',insuredSubject:`${data.name} ${data.surname}`,...overrides};
+  return{...data,validFrom:saleDate,validUntil,premium:12000,currency:'RSD',policyStatus:'Aktivna',paymentMethod:'Kartica',paymentStatus:'Plaćeno',insuredSubject:`${data.name} ${data.surname}`,policyIntroducer:'Matijaš',...overrides};
 }
 
 test('health endpoint remains public',async()=>{
@@ -119,6 +119,21 @@ test('agent can create clients but cannot create insurers',async()=>{
   assert.equal(insurer.response.status,403);
 });
 
+test('policy introducer is required, validated, and stored separately from the agent',async()=>{
+  const agent=await login('agent','Agent123!');
+  const base=withPolicy({name:'Introducer',surname:'Example',age:35,insuranceType:'DZO',insurer:'Uniqa',saleDate:'2026-09-18'});
+  for(const policyIntroducer of ['', 'Nepoznat']){
+    const invalid=await request('/api/clients',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify({...base,policyIntroducer})});
+    assert.equal(invalid.response.status,400);
+  }
+  const created=await request('/api/clients',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify({...base,policyIntroducer:'Jeca'})});
+  assert.equal(created.response.status,201);
+  assert.equal(created.body.policyIntroducer,'Jeca');
+  assert.equal(created.body.soldBy.username,'agent');
+  const details=await request(`/api/clients/${created.body.id}/details`,{headers:{cookie:agent.cookie}});
+  assert.equal(details.body.policy.policyIntroducer,'Jeca');
+});
+
 test('administrator has full access and logout clears the session',async()=>{
   const admin=await login('admin','Admin123!');assert.equal(admin.response.status,200);assert.equal(admin.body.user.role,'admin');
   const created=await request('/api/insurers',{method:'POST',headers:{cookie:admin.cookie,'content-type':'application/json'},body:JSON.stringify({name:'Admin Test Insurer'})});
@@ -193,7 +208,7 @@ test('policy renewal archives immutable versions and starts clean current-policy
   const oldPayment=await request('/api/payments',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify({clientId:policy.body.id,paymentDate:'2024-01-05',amount:1000,method:'Kartica',reference:'RENEWAL-OLD-001'})});assert.equal(oldPayment.response.status,201);
   const overlap=await request(`/api/clients/${policy.body.id}/renew`,{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify({saleDate:'2024-12-01',validFrom:'2025-01-01',validUntil:'2026-01-01',premium:1500,currency:'RSD',insurer:'Uniqa',paymentMethod:'Kartica',insuredSubject:'DZO obnova v2'})});assert.equal(overlap.response.status,400);assert.match(overlap.body.message,/nakon isteka/);
   const analyst=await login('analyst','Analyst123!'),denied=await request(`/api/clients/${policy.body.id}/renew`,{method:'POST',headers:{cookie:analyst.cookie,'content-type':'application/json'},body:'{}'});assert.equal(denied.response.status,403);
-  const payload={saleDate:'2024-12-15',validFrom:'2025-01-02',validUntil:'2026-01-02',premium:1500,currency:'RSD',insurer:'Generali',paymentMethod:'Bankovni transfer',insuredSubject:'DZO obnova v2'},renewed=await request(`/api/clients/${policy.body.id}/renew`,{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify(payload)});assert.equal(renewed.response.status,201);assert.notEqual(renewed.body.policyNumber,policy.body.policyNumber);assert.equal(renewed.body.policyVersion,2);assert.equal(renewed.body.renewedFromPolicyNumber,policy.body.policyNumber);assert.equal(renewed.body.paymentStatus,'Neplaćeno');assert.equal(renewed.body.policyVersions.length,1);assert.equal(renewed.body.policyVersions[0].policyNumber,policy.body.policyNumber);assert.equal(renewed.body.policyVersions[0].premium,1000);assert.equal(renewed.body.policyVersions[0].replacedByPolicyNumber,renewed.body.policyNumber);
+  const payload={saleDate:'2024-12-15',validFrom:'2025-01-02',validUntil:'2026-01-02',premium:1500,currency:'RSD',insurer:'Generali',paymentMethod:'Bankovni transfer',insuredSubject:'DZO obnova v2',policyIntroducer:'Dača'},renewed=await request(`/api/clients/${policy.body.id}/renew`,{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify(payload)});assert.equal(renewed.response.status,201);assert.notEqual(renewed.body.policyNumber,policy.body.policyNumber);assert.equal(renewed.body.policyVersion,2);assert.equal(renewed.body.policyIntroducer,'Dača');assert.equal(renewed.body.policyVersions[0].policyIntroducer,'Matijaš');assert.equal(renewed.body.renewedFromPolicyNumber,policy.body.policyNumber);assert.equal(renewed.body.paymentStatus,'Neplaćeno');assert.equal(renewed.body.policyVersions.length,1);assert.equal(renewed.body.policyVersions[0].policyNumber,policy.body.policyNumber);assert.equal(renewed.body.policyVersions[0].premium,1000);assert.equal(renewed.body.policyVersions[0].replacedByPolicyNumber,renewed.body.policyNumber);
   const details=await request(`/api/clients/${policy.body.id}/details`,{headers:{cookie:agent.cookie}});assert.equal(details.body.summary.versionCount,2);assert.equal(details.body.summary.totalPaid,0);assert.equal(details.body.summary.outstanding,1500);assert.ok(details.body.timeline.some(item=>item.action==='policy_renewed'&&item.reference.includes(policy.body.policyNumber)));
   const newPayment=await request('/api/payments',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify({clientId:policy.body.id,paymentDate:'2025-01-03',amount:1500,method:'Bankovni transfer',reference:'RENEWAL-NEW-001'})});assert.equal(newPayment.response.status,201);assert.equal(newPayment.body.remaining,0);assert.equal(newPayment.body.policyNumber,renewed.body.policyNumber);
   const adria=await login('adria-admin','Adria123!'),crossTenant=await request(`/api/clients/${policy.body.id}/renew`,{method:'POST',headers:{cookie:adria.cookie,'content-type':'application/json'},body:JSON.stringify(payload)});assert.equal(crossTenant.response.status,404);
@@ -272,7 +287,7 @@ test('tenant data and analytics are isolated between companies',async()=>{
 
 test('advanced policy data is validated and status changes are audited',async()=>{
   const agent=await login('agent','Agent123!');
-  const invalid=await request('/api/clients',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify({name:'Invalid',surname:'Policy',age:31,insuranceType:'Privatna svojina',insurer:'Sava',saleDate:'2026-09-05'})});
+  const invalid=await request('/api/clients',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify({name:'Invalid',surname:'Policy',age:31,insuranceType:'Privatna svojina',insurer:'Sava',saleDate:'2026-09-05',policyIntroducer:'Matijaš'})});
   assert.equal(invalid.response.status,400);assert.match(invalid.body.message,/Datumi/);
   const payload=withPolicy({name:'Advanced',surname:'Policy',age:31,insuranceType:'Privatna svojina',insurer:'Sava',saleDate:'2026-09-05'},{premium:275.5,currency:'EUR',policyStatus:'Nacrt',paymentMethod:'Bankovni transfer',paymentStatus:'Neplaćeno',insuredSubject:'Stan u Beogradu',documentReference:'ugovor-2026-09.pdf'});
   const created=await request('/api/clients',{method:'POST',headers:{cookie:agent.cookie,'content-type':'application/json'},body:JSON.stringify(payload)});
