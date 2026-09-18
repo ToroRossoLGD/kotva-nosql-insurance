@@ -8,5 +8,8 @@
 .kpi-charts{display:grid;grid-template-columns:1fr 1fr;gap:16px}.kpi-charts .chart{height:300px}
 .kpi-definition{margin:14px 0 38px;padding:13px 16px;border-left:4px solid #e76f51;background:#fff3ef;color:#735046;border-radius:0 8px 8px 0;font-size:12px;line-height:1.55}
 .analytics-detail-heading{margin-top:0}
+.introducer-export{display:flex;align-items:center;justify-content:space-between;gap:24px;margin:0 0 38px;padding:22px 24px}
+.introducer-export h3{margin:0;font-size:17px}.introducer-export p:last-child{margin:6px 0 0;color:#6b7882;font-size:12px}
+.introducer-export-actions{display:flex;align-items:end;gap:12px;flex-wrap:wrap}.introducer-export-actions label{min-width:190px}.introducer-export-actions button{white-space:nowrap}
 @media(max-width:1100px){.kpi-cards{grid-template-columns:repeat(2,1fr)}.kpi-charts{grid-template-columns:1fr}}
-@media(max-width:600px){.kpi-cards{grid-template-columns:1fr}.kpi-currency-label{width:100%;justify-content:flex-end}.heading-actions{flex-wrap:wrap}}
+@media(max-width:600px){.kpi-cards{grid-template-columns:1fr}.kpi-currency-label{width:100%;justify-content:flex-end}.heading-actions{flex-wrap:wrap}.introducer-export{align-items:stretch;flex-direction:column}.introducer-export-actions,.introducer-export-actions label,.introducer-export-actions button{width:100%}}
